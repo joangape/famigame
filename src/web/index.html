@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FFF8E7">
+  <title>FAMIGAME — Mando Móvil</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <!-- Decorative Header Badge -->
+    <header class="brand-header" aria-label="Famigame">
+      <div class="brand-badge">
+        <span class="geo-shape geo-circle" aria-hidden="true"></span>
+        <span class="geo-shape geo-triangle" aria-hidden="true"></span>
+        <span class="brand-title">FAMIGAME</span>
+        <span class="geo-shape geo-star" aria-hidden="true">★</span>
+        <span class="geo-shape geo-square" aria-hidden="true"></span>
+      </div>
+    </header>
+
+    <!-- View 1: Connect Screen -->
+    <section id="connect-screen" class="screen active" aria-labelledby="connect-title">
+      <div class="retro-card connect-card">
+        <div class="card-sticker" aria-hidden="true">🎮 MANDO MÓVIL</div>
+        <h1 id="connect-title" class="card-title">¡Únete a la partida!</h1>
+        <p class="card-subtitle">Escribe tu nombre o entra directo para aparecer en la tele.</p>
+
+        <div class="field-group">
+          <label for="player-name" class="field-label">Tu apodo</label>
+          <input
+            id="player-name"
+            class="retro-input"
+            type="text"
+            maxlength="16"
+            placeholder="Tu apodo (opcional)"
+            autocomplete="nickname"
+            enterkeyhint="go"
+          >
+        </div>
+
+        <button id="connect-btn" class="retro-btn btn-primary" type="button">
+          ¡CONECTARME!
+        </button>
+
+        <div id="status-msg" class="status-banner" role="status" aria-live="polite" hidden></div>
+      </div>
+    </section>
+
+    <!-- View 2: Connected Screen -->
+    <section id="connected-screen" class="screen" aria-labelledby="player-name-display" hidden>
+      <div id="player-card" class="retro-card player-card">
+        <div id="player-badge" class="player-badge">JUGADOR #1</div>
+
+        <div id="avatar-container" class="avatar-stage" aria-hidden="true">
+          <!-- Cute SVG geometric character injected by app.js -->
+        </div>
+
+        <h2 id="player-name-display" class="player-name">Jugador 1</h2>
+        <p id="pong-feedback" class="pong-toast" role="status" aria-live="polite">¡Conectado a la tele! 📺</p>
+      </div>
+
+      <div class="action-stack">
+        <button id="ping-btn" class="retro-btn btn-sunny" type="button">
+          👋 ¡SALUDAR EN LA TELE!
+        </button>
+
+        <button id="disconnect-btn" class="retro-btn btn-secondary" type="button">
+          Salir / Cambiar nombre
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

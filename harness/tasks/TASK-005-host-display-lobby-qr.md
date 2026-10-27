@@ -1,6 +1,6 @@
 # TASK-005: Pantalla Host HDMI y Lobby con Código QR
 
-- **Status**: TODO
+- **Status**: DONE
 - **Priority**: P0
 - **Epic**: EPIC-03
 

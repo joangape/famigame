@@ -1,6 +1,6 @@
 # TASK-003: Servidor HTTP y Hub de WebSockets
 
-- **Status**: TODO
+- **Status**: DONE
 - **Priority**: P0
 - **Epic**: EPIC-01
 
