@@ -101,6 +101,9 @@ async def test_ws_join_ping_and_disconnect_cleanup():
         assert msg1["type"] == "joined"
         assert msg1["player"]["id"] == "p1"
         assert msg1["player"]["name"] == "Alicia"
+        role1 = await ws1.receive_json()
+        assert role1["type"] == "role_update"
+        assert role1["is_capitan"] is True
 
         # Connect second client with empty name
         ws2 = await client.ws_connect("/ws")
@@ -109,6 +112,13 @@ async def test_ws_join_ping_and_disconnect_cleanup():
         assert msg2["type"] == "joined"
         assert msg2["player"]["id"] == "p2"
         assert msg2["player"]["name"] == "Jugador 2"
+        role2 = await ws2.receive_json()
+        assert role2["type"] == "role_update"
+        assert role2["is_capitan"] is False
+
+        role1_update = await ws1.receive_json()
+        assert role1_update["type"] == "role_update"
+        assert role1_update["is_capitan"] is True
 
         assert len(state.snapshot()) == 2
 
@@ -122,7 +132,9 @@ async def test_ws_join_ping_and_disconnect_cleanup():
 
         # Close ws1 and verify removal
         await ws1.close()
-        # Allow server loop a brief moment to run finally block
+        role2_promoted = await ws2.receive_json()
+        assert role2_promoted["type"] == "role_update"
+        assert role2_promoted["is_capitan"] is True
         for _ in range(20):
             if len(state.snapshot()) == 1:
                 break
@@ -250,6 +262,8 @@ async def test_static_assets_serving_and_gamepad_dom():
         assert 'id="btn-b"' in html
         assert 'id="ctrl-ping-btn"' in html
         assert 'id="ctrl-disconnect-btn"' in html
+        assert 'id="ctrl-capitan-badge"' in html
+        assert 'id="ctrl-role-banner"' in html
 
         # GET /app.js
         resp_js = await client.get("/app.js")
@@ -258,6 +272,7 @@ async def test_static_assets_serving_and_gamepad_dom():
         assert "direction_change" in js
         assert "calculateDpadDirection" in js
         assert "has-controller-active" in js
+        assert "role_update" in js
 
         # GET /style.css
         resp_css = await client.get("/style.css")
@@ -266,3 +281,113 @@ async def test_static_assets_serving_and_gamepad_dom():
         assert "gamepad-surface" in css
         assert "action-cluster" in css
         assert "touch-action: none" in css
+        assert "ctrl-capitan-badge" in css
+        assert "ctrl-role-banner" in css
+
+
+@pytest.mark.asyncio
+async def test_ws_role_updates_and_transfer():
+    state = LobbyState()
+    app = create_app(state)
+
+    async with TestClient(TestServer(app)) as client:
+        # Connect client 1: first player is designated Capitán
+        ws1 = await client.ws_connect("/ws")
+        await ws1.send_json({"type": "join", "name": "Capitana"})
+        msg1 = await ws1.receive_json()
+        assert msg1["type"] == "joined"
+        assert msg1["player"]["is_capitan"] is True
+
+        role1 = await ws1.receive_json()
+        assert role1["type"] == "role_update"
+        assert role1["player_id"] == "p1"
+        assert role1["is_capitan"] is True
+        assert role1["capitan_id"] == "p1"
+        assert role1["capitan_name"] == "Capitana"
+
+        # Connect client 2: regular player
+        ws2 = await client.ws_connect("/ws")
+        await ws2.send_json({"type": "join", "name": "Segunda"})
+        msg2 = await ws2.receive_json()
+        assert msg2["type"] == "joined"
+        assert msg2["player"]["is_capitan"] is False
+
+        # Both receive role_update
+        role_for_p1 = await ws1.receive_json()
+        assert role_for_p1["type"] == "role_update"
+        assert role_for_p1["player_id"] == "p1"
+        assert role_for_p1["is_capitan"] is True
+
+        role_for_p2 = await ws2.receive_json()
+        assert role_for_p2["type"] == "role_update"
+        assert role_for_p2["player_id"] == "p2"
+        assert role_for_p2["is_capitan"] is False
+        assert role_for_p2["capitan_id"] == "p1"
+        assert role_for_p2["capitan_name"] == "Capitana"
+
+        # Close client 1: client 2 receives promotion role_update
+        await ws1.close()
+        role_transfer = await ws2.receive_json()
+        assert role_transfer["type"] == "role_update"
+        assert role_transfer["player_id"] == "p2"
+        assert role_transfer["is_capitan"] is True
+        assert role_transfer["capitan_id"] == "p2"
+        assert role_transfer["capitan_name"] == "Segunda"
+
+        await ws2.close()
+
+
+def test_capitan_assignment_first_player():
+    state = LobbyState()
+    assert state.get_capitan_id() is None
+
+    p1 = state.add_player("Player 1")
+    assert p1.is_capitan is True
+    assert p1.to_dict()["is_capitan"] is True
+    assert state.get_capitan_id() == "p1"
+    assert state.is_capitan("p1") is True
+
+    p2 = state.add_player("Player 2")
+    assert p2.is_capitan is False
+    assert p2.to_dict()["is_capitan"] is False
+    assert state.get_capitan_id() == "p1"
+    assert state.is_capitan("p1") is True
+    assert state.is_capitan("p2") is False
+
+
+def test_capitan_transfer_on_disconnect():
+    state = LobbyState()
+    p1 = state.add_player("P1")
+    time.sleep(0.01)
+    p2 = state.add_player("P2")
+    time.sleep(0.01)
+    p3 = state.add_player("P3")
+
+    assert state.get_capitan_id() == "p1"
+
+    # Non-capitan disconnect does not change capitan
+    state.remove_player("p3")
+    assert state.get_capitan_id() == "p1"
+    assert p1.is_capitan is True
+    assert p2.is_capitan is False
+
+    # Capitan disconnect transfers to next oldest player (p2)
+    state.remove_player("p1")
+    assert state.get_capitan_id() == "p2"
+    assert p2.is_capitan is True
+    assert state.is_capitan("p2") is True
+    assert state.is_capitan("p1") is False
+
+
+def test_capitan_none_when_empty():
+    state = LobbyState()
+    assert state.get_capitan_id() is None
+    assert state.is_capitan("p1") is False
+
+    p1 = state.add_player("Solo")
+    assert state.get_capitan_id() == "p1"
+
+    state.remove_player("p1")
+    assert state.get_capitan_id() is None
+    assert state.is_capitan("p1") is False
+

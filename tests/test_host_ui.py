@@ -123,3 +123,196 @@ def test_main_cli_debug_gamepad_flag():
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "Gamepad debug mode active" in result.stdout
+
+
+def test_capitan_crown_badge_rendered():
+    screen = pygame.Surface((1280, 720))
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    now = 1000.0
+
+    p_plain = Player(
+        id="p1",
+        number=1,
+        name="Jugador 1",
+        color=PLAYER_COLORS[0],
+        shape=PLAYER_SHAPES[0],
+        connected_at=now - 1.0,
+        last_ping_at=now - 5.0,
+        is_capitan=False,
+    )
+    renderer.render(screen, [p_plain], now=now)
+    plain_bytes = pygame.image.tobytes(screen, "RGB")
+
+    p_capitan = Player(
+        id="p1",
+        number=1,
+        name="Jugador 1",
+        color=PLAYER_COLORS[0],
+        shape=PLAYER_SHAPES[0],
+        connected_at=now - 1.0,
+        last_ping_at=now - 5.0,
+        is_capitan=True,
+    )
+    renderer.render(screen, [p_capitan], now=now)
+    capitan_bytes = pygame.image.tobytes(screen, "RGB")
+
+    assert capitan_bytes != plain_bytes
+
+
+def test_lobby_menu_navigation_capitan_only():
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    assert renderer.selected_menu_index == 0
+
+    capitan = Player(
+        id="p1",
+        number=1,
+        name="Capitán",
+        color=PLAYER_COLORS[0],
+        shape=PLAYER_SHAPES[0],
+        connected_at=10.0,
+        last_ping_at=10.0,
+        is_capitan=True,
+    )
+    other = Player(
+        id="p2",
+        number=2,
+        name="Otro",
+        color=PLAYER_COLORS[1],
+        shape=PLAYER_SHAPES[1],
+        connected_at=11.0,
+        last_ping_at=10.0,
+        is_capitan=False,
+    )
+
+    # Other player cannot navigate menu
+    res = renderer.handle_input(other, "direction_change", direction="right")
+    assert res is False
+    assert renderer.selected_menu_index == 0
+
+    # Capitán navigates right (index 0 -> 1)
+    res = renderer.handle_input(capitan, "direction_change", direction="right")
+    assert res is True
+    assert renderer.selected_menu_index == 1
+
+    # Capitán navigates down (index 1 -> 0 wraps)
+    res = renderer.handle_input(capitan, "direction_change", direction="down")
+    assert res is True
+    assert renderer.selected_menu_index == 0
+
+    # Capitán navigates left (index 0 -> 1 wraps)
+    res = renderer.handle_input(capitan, "direction_change", direction="left")
+    assert res is True
+    assert renderer.selected_menu_index == 1
+
+    # Capitán navigates up (index 1 -> 0)
+    res = renderer.handle_input(capitan, "direction_change", direction="up")
+    assert res is True
+    assert renderer.selected_menu_index == 0
+
+
+def test_lobby_menu_launch_and_cancel():
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    capitan = Player(
+        id="p1",
+        number=1,
+        name="Capitán",
+        color=PLAYER_COLORS[0],
+        shape=PLAYER_SHAPES[0],
+        connected_at=10.0,
+        last_ping_at=10.0,
+        is_capitan=True,
+    )
+    other = Player(
+        id="p2",
+        number=2,
+        name="Otro",
+        color=PLAYER_COLORS[1],
+        shape=PLAYER_SHAPES[1],
+        connected_at=11.0,
+        last_ping_at=10.0,
+        is_capitan=False,
+    )
+
+    # Non-capitan Button A ignored
+    res = renderer.handle_input(other, "press", button="a")
+    assert res is False
+    assert renderer.is_launching is False
+
+    # Capitán Button A on "INICIAR PARTIDA"
+    assert renderer.selected_menu_index == 0
+    res = renderer.handle_input(capitan, "press", button="a")
+    assert res is True
+    assert renderer.is_launching is True
+    assert renderer.launch_started_at is not None
+
+    # Render while launching includes launch overlay without error
+    screen = pygame.Surface((1280, 720))
+    renderer.render(screen, [capitan], now=1005.0)
+
+    # Capitán Button B cancels launch
+    res = renderer.handle_input(capitan, "press", button="b")
+    assert res is True
+    assert renderer.is_launching is False
+    assert renderer.launch_started_at is None
+
+    # Navigate to Sound option
+    renderer.handle_input(capitan, "direction_change", direction="right")
+    assert renderer.selected_menu_index == 1
+    assert renderer.sound_enabled is True
+
+    # Button A toggles sound OFF
+    res = renderer.handle_input(capitan, "press", button="a")
+    assert res is True
+    assert renderer.sound_enabled is False
+    assert "NO" in renderer.menu_options[1]
+
+    # Button A toggles sound back ON
+    res = renderer.handle_input(capitan, "press", button="a")
+    assert res is True
+    assert renderer.sound_enabled is True
+    assert "SÍ" in renderer.menu_options[1]
+
+
+def test_main_input_wiring_and_host_keyboard_simulation():
+    from src.state import LobbyState
+    import main
+
+    state = LobbyState()
+    renderer = LobbyRenderer("http://127.0.0.1:8080")
+
+    # Wire listener as main.py does
+    def _on_input(player, action, direction, button):
+        renderer.handle_input(player, action, direction, button)
+
+    state.set_input_listener(_on_input)
+
+    p1 = state.add_player("Alice")
+    assert p1.is_capitan is True
+
+    # Mobile d-pad event updates state and triggers renderer.handle_input
+    state.update_player_input(p1.id, "direction_change", direction="right")
+    assert renderer.selected_menu_index == 1
+
+    state.update_player_input(p1.id, "press", button="a")
+    assert renderer.sound_enabled is False
+
+    # Simulate keyboard controls for host
+    def _get_active_capitan():
+        for p in state.snapshot():
+            if p.is_capitan:
+                return p
+        return Player("host", 0, "Host", "#FFF", "star", 0.0, 0.0, is_capitan=True)
+
+    # Move left
+    renderer.handle_input(_get_active_capitan(), "direction_change", direction="left")
+    assert renderer.selected_menu_index == 0
+
+    # Press Enter (Button A) -> launches
+    renderer.handle_input(_get_active_capitan(), "press", button="a")
+    assert renderer.is_launching is True
+
+    # Press Backspace (Button B) -> cancels launch
+    renderer.handle_input(_get_active_capitan(), "press", button="b")
+    assert renderer.is_launching is False
+
+

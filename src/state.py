@@ -30,6 +30,7 @@ class Player:
     shape: str
     connected_at: float
     last_ping_at: float
+    is_capitan: bool = False
     last_input_at: float = 0.0
     input_state: dict = field(
         default_factory=lambda: {
@@ -47,6 +48,7 @@ class Player:
             "shape": self.shape,
             "connected_at": self.connected_at,
             "last_ping_at": self.last_ping_at,
+            "is_capitan": self.is_capitan,
             "last_input_at": self.last_input_at,
             "input_state": {
                 "direction": self.input_state["direction"],
@@ -61,6 +63,25 @@ class LobbyState:
         self._players: dict[str, Player] = {}
         self._counter = 0
         self._input_listener: Callable[[Player, str, str | None, str | None], None] | None = None
+
+    def _recalculate_capitan_locked(self) -> None:
+        if not self._players:
+            return
+        oldest_id = min(self._players.values(), key=lambda p: p.connected_at).id
+        for p in self._players.values():
+            p.is_capitan = (p.id == oldest_id)
+
+    def get_capitan_id(self) -> str | None:
+        with self._lock:
+            for p in self._players.values():
+                if p.is_capitan:
+                    return p.id
+            return None
+
+    def is_capitan(self, player_id: str) -> bool:
+        with self._lock:
+            player = self._players.get(player_id)
+            return bool(player and player.is_capitan)
 
     def set_input_listener(
         self,
@@ -83,6 +104,7 @@ class LobbyState:
                 shape=PLAYER_SHAPES[(n - 1) % len(PLAYER_SHAPES)],
                 connected_at=now,
                 last_ping_at=now,
+                is_capitan=False,
                 last_input_at=now,
                 input_state={
                     "direction": "none",
@@ -90,11 +112,13 @@ class LobbyState:
                 },
             )
             self._players[player.id] = player
+            self._recalculate_capitan_locked()
             return player
 
     def remove_player(self, player_id: str) -> None:
         with self._lock:
             self._players.pop(player_id, None)
+            self._recalculate_capitan_locked()
 
     def trigger_ping(self, player_id: str) -> bool:
         with self._lock:

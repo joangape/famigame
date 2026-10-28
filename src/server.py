@@ -115,6 +115,30 @@ def create_app(state: LobbyState, web_dir: Path | None = None) -> web.Applicatio
     async def handle_state(_request: web.Request) -> web.Response:
         return web.json_response({"players": [p.to_dict() for p in state.snapshot()]})
 
+    active_connections: dict[web.WebSocketResponse, Player] = {}
+
+    async def broadcast_roles() -> None:
+        cap_id = state.get_capitan_id()
+        cap_name = ""
+        for p in state.snapshot():
+            if p.id == cap_id:
+                cap_name = p.name
+                break
+        for ws_conn, player in list(active_connections.items()):
+            if not ws_conn.closed:
+                is_cap = (player.id == cap_id)
+                player.is_capitan = is_cap
+                try:
+                    await ws_conn.send_json({
+                        "type": "role_update",
+                        "player_id": player.id,
+                        "is_capitan": is_cap,
+                        "capitan_id": cap_id,
+                        "capitan_name": cap_name,
+                    })
+                except Exception:
+                    pass
+
     async def handle_ws(request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=15.0)
         await ws.prepare(request)
@@ -137,9 +161,11 @@ def create_app(state: LobbyState, web_dir: Path | None = None) -> web.Applicatio
                             current_player = state.add_player(
                                 raw_name if isinstance(raw_name, str) else ""
                             )
+                            active_connections[ws] = current_player
                         await ws.send_json(
                             {"type": "joined", "player": current_player.to_dict()}
                         )
+                        await broadcast_roles()
                     elif msg_type == "ping" and current_player is not None:
                         state.trigger_ping(current_player.id)
                         await ws.send_json(
@@ -159,8 +185,10 @@ def create_app(state: LobbyState, web_dir: Path | None = None) -> web.Applicatio
                 elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
                     break
         finally:
+            active_connections.pop(ws, None)
             if current_player is not None:
                 state.remove_player(current_player.id)
+                await broadcast_roles()
 
         return ws
 

@@ -14,7 +14,9 @@
   // Controller Screen Elements
   const ctrlAvatar = document.getElementById("ctrl-avatar");
   const ctrlBadge = document.getElementById("ctrl-badge");
+  const ctrlCapitanBadge = document.getElementById("ctrl-capitan-badge");
   const ctrlName = document.getElementById("ctrl-name");
+  const ctrlRoleBanner = document.getElementById("ctrl-role-banner");
   const ctrlPingBtn = document.getElementById("ctrl-ping-btn");
   const ctrlDisconnectBtn = document.getElementById("ctrl-disconnect-btn");
   const ctrlToast = document.getElementById("ctrl-toast");
@@ -95,6 +97,11 @@
     connectBtn.disabled = false;
     connectBtn.textContent = "¡CONECTARME!";
     resetInputState();
+    if (ctrlCapitanBadge) ctrlCapitanBadge.hidden = true;
+    if (ctrlRoleBanner) {
+      ctrlRoleBanner.hidden = true;
+      ctrlRoleBanner.textContent = "";
+    }
     showStatus(notice, isError);
   }
 
@@ -165,6 +172,18 @@
     if (ctrlBadge) ctrlBadge.textContent = `JUGADOR #${number}`;
     if (ctrlName) ctrlName.textContent = name;
     renderAvatar(shape, color);
+
+    const isCap = Boolean(player.is_capitan);
+    if (ctrlCapitanBadge) ctrlCapitanBadge.hidden = !isCap;
+    if (ctrlRoleBanner) {
+      ctrlRoleBanner.hidden = false;
+      ctrlRoleBanner.classList.toggle("is-capitan", isCap);
+      if (isCap) {
+        ctrlRoleBanner.textContent = "👑 Eres el Capitán";
+      } else {
+        ctrlRoleBanner.textContent = "Esperando al Capitán para iniciar...";
+      }
+    }
 
     // Direct controller activation
     connectScreen.hidden = true;
@@ -468,6 +487,20 @@
       if (data.type === "joined" && data.player) {
         showStatus("");
         renderPlayerJoined(data.player);
+      } else if (data.type === "role_update") {
+        const isCap = Boolean(data.is_capitan);
+        if (ctrlCapitanBadge) ctrlCapitanBadge.hidden = !isCap;
+        if (ctrlRoleBanner) {
+          ctrlRoleBanner.hidden = false;
+          ctrlRoleBanner.classList.toggle("is-capitan", isCap);
+          if (isCap) {
+            ctrlRoleBanner.textContent = "👑 Eres el Capitán";
+            vibrate(30);
+            showToast("¡Ahora eres el Capitán! 👑", 1500);
+          } else {
+            ctrlRoleBanner.textContent = "Esperando al Capitán " + (data.capitan_name || "") + " para iniciar...";
+          }
+        }
       } else if (data.type === "pong") {
         if (pongFeedback) {
           pongFeedback.textContent = "¡Saludo enviado a la tele! ✨";

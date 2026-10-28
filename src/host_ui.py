@@ -64,6 +64,39 @@ def _star_points(
     return pts
 
 
+def draw_crown_icon(
+    surface: pygame.Surface,
+    center: tuple[int, int],
+    size: int = 16,
+    fill: tuple[int, int, int] = ACCENT_YELLOW,
+    outline: tuple[int, int, int] = INK_DARK,
+) -> None:
+    cx, cy = center
+    half_w = max(6, size // 2)
+    h = max(5, int(size * 0.7))
+    left = cx - half_w
+    right = cx + half_w
+    top = cy - h // 2
+    bottom = cy + h // 2
+
+    pts = [
+        (left, top + 2),
+        (left + half_w * 0.5, top + h * 0.55),
+        (cx, top),
+        (right - half_w * 0.5, top + h * 0.55),
+        (right, top + 2),
+        (right - 1, bottom),
+        (left + 1, bottom),
+    ]
+    pygame.draw.polygon(surface, fill, pts)
+    pygame.draw.polygon(surface, outline, pts, width=2)
+
+    peak_r = max(1, size // 10)
+    for px, py in ((left, top + 2), (cx, top), (right, top + 2)):
+        pygame.draw.circle(surface, CARD_WHITE, (int(px), int(py)), peak_r + 1)
+        pygame.draw.circle(surface, outline, (int(px), int(py)), peak_r + 1, width=1)
+
+
 def draw_cute_avatar(
     surface: pygame.Surface,
     center: tuple[int, int],
@@ -187,6 +220,50 @@ class LobbyRenderer:
         self.url = url
         self.qr_surface = generate_qr_surface(url, size=250)
         self._fonts: dict[tuple[int, bool], pygame.font.Font] = {}
+        self.menu_options = ["INICIAR PARTIDA", "SONIDO: SÍ"]
+        self.selected_menu_index: int = 0
+        self.is_launching: bool = False
+        self.launch_started_at: float | None = None
+        self.sound_enabled: bool = True
+
+    def cancel_launch(self) -> None:
+        self.is_launching = False
+        self.launch_started_at = None
+
+    def handle_input(
+        self,
+        player: Player,
+        action: str,
+        direction: str | None = None,
+        button: str | None = None,
+    ) -> bool:
+        if not player.is_capitan:
+            return False
+
+        if action == "direction_change" and direction:
+            if direction in ("up", "left"):
+                self.selected_menu_index = (self.selected_menu_index - 1) % len(self.menu_options)
+                return True
+            elif direction in ("down", "right"):
+                self.selected_menu_index = (self.selected_menu_index + 1) % len(self.menu_options)
+                return True
+
+        elif action == "press" and button:
+            if button == "a":
+                if self.selected_menu_index == 0:
+                    self.is_launching = True
+                    self.launch_started_at = time.time()
+                    return True
+                elif self.selected_menu_index == 1:
+                    self.sound_enabled = not self.sound_enabled
+                    self.menu_options[1] = f"SONIDO: {'SÍ' if self.sound_enabled else 'NO'}"
+                    return True
+            elif button == "b":
+                if self.is_launching:
+                    self.cancel_launch()
+                    return True
+
+        return False
 
     def _font(self, size: int, bold: bool = True) -> pygame.font.Font:
         key = (size, bold)
@@ -266,7 +343,14 @@ class LobbyRenderer:
         cnt_surf = self._font(20, bold=True).render(f"{len(players)}", True, CARD_WHITE)
         screen.blit(cnt_surf, cnt_surf.get_rect(center=badge_rect.center))
 
-        body_rect = pygame.Rect(rect.x, hdr_rect.bottom + 18, rect.width, rect.bottom - hdr_rect.bottom - 18)
+        menu_bar_h = 86
+        menu_rect = pygame.Rect(rect.x, rect.bottom - menu_bar_h, rect.width, menu_bar_h)
+        body_rect = pygame.Rect(
+            rect.x,
+            hdr_rect.bottom + 14,
+            rect.width,
+            menu_rect.top - 14 - (hdr_rect.bottom + 14),
+        )
 
         if not players:
             _draw_shadow_card(screen, body_rect, fill=CARD_WHITE, radius=22)
@@ -283,101 +367,266 @@ class LobbyRenderer:
             msg = self._font(20, bold=True).render(
                 "Esperando jugadores... ¡Escanea el QR con tu móvil!", True, INK_DARK
             )
-            screen.blit(msg, msg.get_rect( centerx=body_rect.centerx, top=body_rect.centery + 42))
-            return
-
-        n = len(players)
-        if n <= 2:
-            cols = n
-        elif n <= 4:
-            cols = 2
-        elif n <= 9:
-            cols = 3
+            screen.blit(msg, msg.get_rect(centerx=body_rect.centerx, top=body_rect.centery + 42))
         else:
-            cols = 4
-        rows = math.ceil(n / cols)
+            n = len(players)
+            if n <= 2:
+                cols = n
+            elif n <= 4:
+                cols = 2
+            elif n <= 9:
+                cols = 3
+            else:
+                cols = 4
+            rows = math.ceil(n / cols)
 
+            gap = 16
+            cell_w = max(120, (body_rect.width - gap * (cols - 1)) // cols)
+            cell_h = max(90, min(220, (body_rect.height - gap * (rows - 1)) // rows))
+
+            for idx, p in enumerate(players):
+                r_idx = idx // cols
+                c_idx = idx % cols
+                base_x = body_rect.x + c_idx * (cell_w + gap)
+                base_y = body_rect.y + r_idx * (cell_h + gap)
+
+                age = max(0.0, now - p.connected_at)
+                scale = 1.0
+                if age < 0.5:
+                    u = age / 0.5
+                    scale = 0.75 + 0.25 * u + 0.12 * math.sin(u * math.pi)
+
+                ping_dt = now - p.last_ping_at
+                is_pinging = 0.0 <= ping_dt < 1.2
+                bounce_y = -int(abs(math.sin(ping_dt * math.pi * 3.5)) * 12) if is_pinging else 0
+
+                w_scaled = int(cell_w * scale)
+                h_scaled = int(cell_h * scale)
+                card_rect = pygame.Rect(
+                    base_x + (cell_w - w_scaled) // 2,
+                    base_y + (cell_h - h_scaled) // 2 + bounce_y,
+                    w_scaled,
+                    h_scaled,
+                )
+
+                _draw_shadow_card(screen, card_rect, fill=CARD_WHITE, radius=16, shadow_offset=5, border_width=4)
+
+                stripe_h = max(26, min(38, card_rect.height // 4))
+                stripe_rect = pygame.Rect(card_rect.x, card_rect.y, card_rect.width, stripe_h)
+                pygame.draw.rect(
+                    screen,
+                    hex_to_rgb(p.color),
+                    stripe_rect,
+                    border_top_left_radius=16,
+                    border_top_right_radius=16,
+                )
+                pygame.draw.rect(
+                    screen,
+                    INK_DARK,
+                    stripe_rect,
+                    width=4,
+                    border_top_left_radius=16,
+                    border_top_right_radius=16,
+                )
+
+                p_badge = self._font(15, bold=True).render(f"P{p.number}", True, INK_DARK)
+                badge_bg = pygame.Rect(card_rect.x + 10, card_rect.y + 5, p_badge.get_width() + 14, stripe_h - 10)
+                pygame.draw.rect(screen, CARD_WHITE, badge_bg, border_radius=8)
+                pygame.draw.rect(screen, INK_DARK, badge_bg, width=2, border_radius=8)
+                screen.blit(p_badge, p_badge.get_rect(center=badge_bg.center))
+
+                if p.is_capitan:
+                    badge_font = self._font(12, bold=True)
+                    cap_text = badge_font.render("CAPITÁN", True, INK_DARK)
+                    crown_w = 16
+                    cap_w = cap_text.get_width() + crown_w + 16
+                    cap_h = stripe_h - 10
+                    cap_rect = pygame.Rect(badge_bg.right + 6, card_rect.y + 5, cap_w, cap_h)
+                    if cap_rect.right > card_rect.right - 8:
+                        cap_rect.right = card_rect.right - 8
+                    _draw_shadow_card(screen, cap_rect, fill=ACCENT_YELLOW, radius=8, shadow_offset=0, border_width=2)
+                    crown_cx = cap_rect.x + 12
+                    crown_cy = cap_rect.centery
+                    draw_crown_icon(screen, (crown_cx, crown_cy), size=14)
+                    text_rect = cap_text.get_rect(midleft=(crown_cx + 10, crown_cy))
+                    screen.blit(cap_text, text_rect)
+
+                avatar_r = max(16, min(36, (card_rect.height - stripe_h - 36) // 2))
+                avatar_cy = card_rect.y + stripe_h + (card_rect.height - stripe_h - 28) // 2
+                draw_cute_avatar(
+                    screen,
+                    (card_rect.centerx, avatar_cy),
+                    avatar_r,
+                    p.color,
+                    p.shape,
+                    is_pinging=is_pinging,
+                    t=now,
+                )
+
+                name_font_size = 16 if cell_h >= 130 else 13
+                name_surf = self._font(name_font_size, bold=True).render(p.name, True, INK_DARK)
+                screen.blit(
+                    name_surf,
+                    name_surf.get_rect(centerx=card_rect.centerx, bottom=card_rect.bottom - 8),
+                )
+
+                if is_pinging:
+                    bub_txt = self._font(13, bold=True).render("¡HOLA!", True, INK_DARK)
+                    bub_rect = pygame.Rect(0, 0, bub_txt.get_width() + 16, 24)
+                    bub_rect.topright = (card_rect.right - 8, card_rect.y + 6)
+                    pygame.draw.rect(screen, ACCENT_YELLOW, bub_rect, border_radius=10)
+                    pygame.draw.rect(screen, INK_DARK, bub_rect, width=2, border_radius=10)
+                    screen.blit(bub_txt, bub_txt.get_rect(center=bub_rect.center))
+
+        self._draw_menu_bar(screen, menu_rect, players, now)
+
+    def _draw_menu_bar(
+        self, screen: pygame.Surface, rect: pygame.Rect, players: list[Player], now: float
+    ) -> None:
+        _draw_shadow_card(screen, rect, fill=CARD_WHITE, radius=18, shadow_offset=4, border_width=3)
+
+        btn_y = rect.y + 12
+        btn_h = 36
+        options = [
+            "INICIAR PARTIDA",
+            f"SONIDO: {'SÍ' if self.sound_enabled else 'NO'}",
+        ]
+
+        btn_widths = [190, 160]
         gap = 16
-        cell_w = max(120, (body_rect.width - gap * (cols - 1)) // cols)
-        cell_h = max(90, min(220, (body_rect.height - gap * (rows - 1)) // rows))
+        total_w = sum(btn_widths) + gap * (len(options) - 1)
+        cur_x = rect.centerx - total_w // 2
 
-        for idx, p in enumerate(players):
-            r_idx = idx // cols
-            c_idx = idx % cols
-            base_x = body_rect.x + c_idx * (cell_w + gap)
-            base_y = body_rect.y + r_idx * (cell_h + gap)
+        for idx, opt_label in enumerate(options):
+            bw = btn_widths[idx]
+            btn_box = pygame.Rect(cur_x, btn_y, bw, btn_h)
+            cur_x += bw + gap
 
-            age = max(0.0, now - p.connected_at)
-            scale = 1.0
-            if age < 0.5:
-                u = age / 0.5
-                scale = 0.75 + 0.25 * u + 0.12 * math.sin(u * math.pi)
+            is_selected = (idx == self.selected_menu_index)
+            if is_selected:
+                pulse = math.sin(now * 6.0) * 1.5
+                inflated_box = btn_box.inflate(int(pulse * 2), int(pulse * 2))
+                _draw_shadow_card(
+                    screen,
+                    inflated_box,
+                    fill=ACCENT_YELLOW,
+                    radius=12,
+                    shadow_offset=3,
+                    border_width=3,
+                )
+                txt_surf = self._font(15, bold=True).render(opt_label, True, INK_DARK)
+                txt_rect = txt_surf.get_rect(center=inflated_box.center)
+                screen.blit(txt_surf, txt_rect)
 
-            ping_dt = now - p.last_ping_at
-            is_pinging = 0.0 <= ping_dt < 1.2
-            bounce_y = -int(abs(math.sin(ping_dt * math.pi * 3.5)) * 12) if is_pinging else 0
+                # Crisp vector selection arrows on left and right
+                arrow_w = 6
+                arrow_h = 7
+                left_pts = [
+                    (txt_rect.left - 12, txt_rect.centery),
+                    (txt_rect.left - 12 + arrow_w, txt_rect.centery - arrow_h),
+                    (txt_rect.left - 12 + arrow_w, txt_rect.centery + arrow_h),
+                ]
+                pygame.draw.polygon(screen, INK_DARK, left_pts)
 
-            w_scaled = int(cell_w * scale)
-            h_scaled = int(cell_h * scale)
-            card_rect = pygame.Rect(
-                base_x + (cell_w - w_scaled) // 2,
-                base_y + (cell_h - h_scaled) // 2 + bounce_y,
-                w_scaled,
-                h_scaled,
-            )
+                right_pts = [
+                    (txt_rect.right + 12, txt_rect.centery),
+                    (txt_rect.right + 12 - arrow_w, txt_rect.centery - arrow_h),
+                    (txt_rect.right + 12 - arrow_w, txt_rect.centery + arrow_h),
+                ]
+                pygame.draw.polygon(screen, INK_DARK, right_pts)
+            else:
+                _draw_shadow_card(
+                    screen,
+                    btn_box,
+                    fill=BG_CREAM,
+                    radius=12,
+                    shadow_offset=0,
+                    border_width=2,
+                )
+                txt_surf = self._font(15, bold=True).render(opt_label, True, INK_DARK)
+                screen.blit(txt_surf, txt_surf.get_rect(center=btn_box.center))
 
-            _draw_shadow_card(screen, card_rect, fill=CARD_WHITE, radius=16, shadow_offset=5, border_width=4)
+        capitan = next((p for p in players if p.is_capitan), None)
+        if not players:
+            prompt_str = "Esperando jugadores... ¡Conéctate para ser el Capitán!"
+            prompt_surf = self._font(14, bold=True).render(prompt_str, True, INK_DARK)
+            screen.blit(prompt_surf, prompt_surf.get_rect(centerx=rect.centerx, top=rect.y + 58))
+        elif capitan:
+            prompt_str = f"Capitán {capitan.name}: Usa la cruceta para moverte, [A] Iniciar"
+            prompt_surf = self._font(14, bold=True).render(prompt_str, True, INK_DARK)
+            total_content_w = prompt_surf.get_width() + 22
+            start_x = rect.centerx - total_content_w // 2
+            crown_y = rect.y + 66
+            draw_crown_icon(screen, (start_x + 8, crown_y), size=14)
+            screen.blit(prompt_surf, (start_x + 20, rect.y + 58))
+        else:
+            prompt_str = "Esperando al Capitán para iniciar..."
+            prompt_surf = self._font(14, bold=True).render(prompt_str, True, INK_DARK)
+            screen.blit(prompt_surf, prompt_surf.get_rect(centerx=rect.centerx, top=rect.y + 58))
 
-            stripe_h = max(26, min(38, card_rect.height // 4))
-            stripe_rect = pygame.Rect(card_rect.x, card_rect.y, card_rect.width, stripe_h)
-            pygame.draw.rect(
-                screen,
-                hex_to_rgb(p.color),
-                stripe_rect,
-                border_top_left_radius=16,
-                border_top_right_radius=16,
-            )
-            pygame.draw.rect(
-                screen,
-                INK_DARK,
-                stripe_rect,
-                width=4,
-                border_top_left_radius=16,
-                border_top_right_radius=16,
-            )
+    def _draw_launch_overlay(self, screen: pygame.Surface, w: int, h: int, now: float) -> None:
+        dim_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        dim_surf.fill((43, 45, 66, 175))
+        screen.blit(dim_surf, (0, 0))
 
-            p_badge = self._font(15, bold=True).render(f"P{p.number}", True, INK_DARK)
-            badge_bg = pygame.Rect(card_rect.x + 10, card_rect.y + 5, p_badge.get_width() + 14, stripe_h - 10)
-            pygame.draw.rect(screen, CARD_WHITE, badge_bg, border_radius=8)
-            pygame.draw.rect(screen, INK_DARK, badge_bg, width=2, border_radius=8)
-            screen.blit(p_badge, p_badge.get_rect(center=badge_bg.center))
+        card_w, card_h = min(540, w - 40), 280
+        card_rect = pygame.Rect(0, 0, card_w, card_h)
+        card_rect.center = (w // 2, h // 2)
 
-            avatar_r = max(16, min(36, (card_rect.height - stripe_h - 36) // 2))
-            avatar_cy = card_rect.y + stripe_h + (card_rect.height - stripe_h - 28) // 2
-            draw_cute_avatar(
-                screen,
-                (card_rect.centerx, avatar_cy),
-                avatar_r,
-                p.color,
-                p.shape,
-                is_pinging=is_pinging,
-                t=now,
-            )
+        _draw_shadow_card(
+            screen,
+            card_rect,
+            fill=CARD_WHITE,
+            radius=24,
+            shadow_offset=8,
+            border_width=4,
+        )
 
-            name_font_size = 16 if cell_h >= 130 else 13
-            name_surf = self._font(name_font_size, bold=True).render(p.name, True, INK_DARK)
-            screen.blit(
-                name_surf,
-                name_surf.get_rect(centerx=card_rect.centerx, bottom=card_rect.bottom - 8),
-            )
+        banner_h = 56
+        banner_rect = pygame.Rect(card_rect.x, card_rect.y, card_rect.width, banner_h)
+        pygame.draw.rect(
+            screen,
+            ACCENT_YELLOW,
+            banner_rect,
+            border_top_left_radius=24,
+            border_top_right_radius=24,
+        )
+        pygame.draw.rect(
+            screen,
+            INK_DARK,
+            banner_rect,
+            width=4,
+            border_top_left_radius=24,
+            border_top_right_radius=24,
+        )
 
-            if is_pinging:
-                bub_txt = self._font(13, bold=True).render("¡HOLA!", True, INK_DARK)
-                bub_rect = pygame.Rect(0, 0, bub_txt.get_width() + 16, 24)
-                bub_rect.topright = (card_rect.right - 8, card_rect.y + 6)
-                pygame.draw.rect(screen, ACCENT_YELLOW, bub_rect, border_radius=10)
-                pygame.draw.rect(screen, INK_DARK, bub_rect, width=2, border_radius=10)
-                screen.blit(bub_txt, bub_txt.get_rect(center=bub_rect.center))
+        title_surf = self._font(26, bold=True).render("¡PARTIDA INICIADA!", True, INK_DARK)
+        screen.blit(title_surf, title_surf.get_rect(center=banner_rect.center))
+
+        cx = card_rect.centerx
+        cy = card_rect.y + 110
+        for i, (offset_x, color) in enumerate([(-40, ACCENT_CORAL), (0, ACCENT_YELLOW), (40, ACCENT_MINT)]):
+            star_bounce = math.sin(now * 5.0 + i * 1.2) * 8
+            star_pts = _star_points(cx + offset_x, cy + star_bounce, 14, 6, 5)
+            pygame.draw.polygon(screen, color, star_pts)
+            pygame.draw.polygon(screen, INK_DARK, star_pts, width=2)
+
+        sub_surf = self._font(20, bold=True).render("Preparando minijuegos...", True, INK_DARK)
+        screen.blit(sub_surf, sub_surf.get_rect(centerx=cx, top=cy + 26))
+
+        cancel_box = pygame.Rect(0, 0, 160, 36)
+        cancel_box.centerx = cx
+        cancel_box.bottom = card_rect.bottom - 20
+        _draw_shadow_card(
+            screen,
+            cancel_box,
+            fill=ACCENT_CORAL,
+            radius=12,
+            shadow_offset=3,
+            border_width=3,
+        )
+        cancel_surf = self._font(15, bold=True).render("[B] Cancelar", True, CARD_WHITE)
+        screen.blit(cancel_surf, cancel_surf.get_rect(center=cancel_box.center))
 
     def render(
         self, screen: pygame.Surface, players: list[Player], now: float | None = None
@@ -396,3 +645,5 @@ class LobbyRenderer:
 
         self._draw_left_panel(screen, left_rect, t)
         self._draw_right_panel(screen, right_rect, players, t)
+        if self.is_launching:
+            self._draw_launch_overlay(screen, w, h, t)

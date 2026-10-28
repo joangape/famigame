@@ -511,11 +511,76 @@ body.has-controller-active .app-shell,
   min-width: 0;
 }
 
+.ctrl-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .ctrl-badge {
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.05em;
   color: var(--ink-muted);
+}
+
+.ctrl-capitan-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #FFCA3A;
+  color: #2B2D42;
+  border: 2px solid #2B2D42;
+  font-size: 11px;
+  font-weight: bold;
+  border-radius: 999px;
+  padding: 2px 8px;
+  line-height: 1.2;
+  box-shadow: 0 2px 0 #2B2D42;
+  animation: capitan-pulse 2s infinite ease-in-out;
+  white-space: nowrap;
+}
+
+.ctrl-capitan-badge[hidden] {
+  display: none !important;
+}
+
+@keyframes capitan-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.ctrl-role-banner {
+  background: var(--surface);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 5px 14px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 3px 0 var(--ink);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.ctrl-role-banner[hidden] {
+  display: none !important;
+}
+
+.ctrl-role-banner.is-capitan {
+  background: #FFCA3A;
+  border-color: #2B2D42;
+  color: #2B2D42;
+  box-shadow: 0 3px 0 #2B2D42;
+  font-weight: 900;
 }
 
 .ctrl-name {
