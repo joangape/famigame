@@ -22,12 +22,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=0,
         help="Run for N frames then exit cleanly (0 = run indefinitely)",
     )
+    parser.add_argument(
+        "--debug-gamepad",
+        action="store_true",
+        help="Print controller input signals to console in real time",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     state = LobbyState()
+
+    if args.debug_gamepad:
+        def _on_gamepad_signal(player, action: str, direction: str | None, button: str | None) -> None:
+            if action == "direction_change":
+                print(f"🎮 [GAMEPAD] {player.name} ({player.id}) | direction -> {direction}", flush=True)
+            elif action in ("press", "release"):
+                print(f"🎮 [GAMEPAD] {player.name} ({player.id}) | button {button.upper() if button else '?'} -> {action}", flush=True)
+            else:
+                print(f"🎮 [GAMEPAD] {player.name} ({player.id}) | {action} (dir={direction}, btn={button})", flush=True)
+
+        state.set_input_listener(_on_gamepad_signal)
+        print("🎮 Gamepad debug mode active: listening for controller signals...", flush=True)
+
     start_background_server(state, host=args.host, port=args.port)
 
     url = f"http://{get_local_ip()}:{args.port}"

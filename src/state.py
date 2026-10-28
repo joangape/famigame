@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import threading
 import time
+from typing import Callable
+
+VALID_DIRECTIONS = ("up", "down", "left", "right", "none")
+VALID_BUTTONS = ("a", "b")
 
 PLAYER_COLORS = [
     "#FF5964",
@@ -26,6 +30,13 @@ class Player:
     shape: str
     connected_at: float
     last_ping_at: float
+    last_input_at: float = 0.0
+    input_state: dict = field(
+        default_factory=lambda: {
+            "direction": "none",
+            "buttons": {"a": False, "b": False},
+        }
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -36,6 +47,11 @@ class Player:
             "shape": self.shape,
             "connected_at": self.connected_at,
             "last_ping_at": self.last_ping_at,
+            "last_input_at": self.last_input_at,
+            "input_state": {
+                "direction": self.input_state["direction"],
+                "buttons": dict(self.input_state["buttons"]),
+            },
         }
 
 
@@ -44,6 +60,14 @@ class LobbyState:
         self._lock = threading.Lock()
         self._players: dict[str, Player] = {}
         self._counter = 0
+        self._input_listener: Callable[[Player, str, str | None, str | None], None] | None = None
+
+    def set_input_listener(
+        self,
+        callback: Callable[[Player, str, str | None, str | None], None] | None,
+    ) -> None:
+        with self._lock:
+            self._input_listener = callback
 
     def add_player(self, name: str = "") -> Player:
         with self._lock:
@@ -59,6 +83,11 @@ class LobbyState:
                 shape=PLAYER_SHAPES[(n - 1) % len(PLAYER_SHAPES)],
                 connected_at=now,
                 last_ping_at=now,
+                last_input_at=now,
+                input_state={
+                    "direction": "none",
+                    "buttons": {"a": False, "b": False},
+                },
             )
             self._players[player.id] = player
             return player
@@ -74,6 +103,50 @@ class LobbyState:
                 return False
             player.last_ping_at = time.time()
             return True
+
+    def update_player_input(
+        self,
+        player_id: str,
+        action: str,
+        direction: str | None = None,
+        button: str | None = None,
+    ) -> bool:
+        with self._lock:
+            player = self._players.get(player_id)
+            if player is None:
+                return False
+            now = time.time()
+            updated = False
+            if action == "direction_change" and direction in VALID_DIRECTIONS:
+                player.input_state["direction"] = direction
+                player.last_input_at = now
+                updated = True
+            elif action == "press" and button in VALID_BUTTONS:
+                player.input_state["buttons"][button] = True
+                player.last_input_at = now
+                updated = True
+            elif action == "release" and button in VALID_BUTTONS:
+                player.input_state["buttons"][button] = False
+                player.last_input_at = now
+                updated = True
+
+            if updated and self._input_listener is not None:
+                try:
+                    self._input_listener(player, action, direction, button)
+                except Exception:
+                    pass
+            return updated
+
+    def get_player_input(self, player_id: str) -> dict | None:
+        with self._lock:
+            player = self._players.get(player_id)
+            if player is None:
+                return None
+            return {
+                "direction": player.input_state["direction"],
+                "buttons": dict(player.input_state["buttons"]),
+                "last_input_at": player.last_input_at,
+            }
 
     def snapshot(self) -> list[Player]:
         with self._lock:

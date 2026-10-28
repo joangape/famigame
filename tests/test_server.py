@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 from pathlib import Path
 import sys
@@ -135,3 +136,133 @@ async def test_ws_join_ping_and_disconnect_cleanup():
                 break
             await client.get("/api/state")
         assert state.snapshot() == []
+
+
+def test_player_input_state_lifecycle_in_lobby():
+    state = LobbyState()
+    received_signals = []
+    state.set_input_listener(lambda player, act, dir_, btn: received_signals.append((player.id, act, dir_, btn)))
+
+    p = state.add_player("GamepadTester")
+    assert p.input_state == {
+        "direction": "none",
+        "buttons": {"a": False, "b": False},
+    }
+    assert p.last_input_at > 0
+
+    # Direction changes
+    assert state.update_player_input(p.id, action="direction_change", direction="up") is True
+    assert state.get_player_input(p.id)["direction"] == "up"
+    assert received_signals[-1] == ("p1", "direction_change", "up", None)
+
+    assert state.update_player_input(p.id, action="direction_change", direction="right") is True
+    assert state.get_player_input(p.id)["direction"] == "right"
+
+    assert state.update_player_input(p.id, action="direction_change", direction="none") is True
+    assert state.get_player_input(p.id)["direction"] == "none"
+
+    # Invalid direction rejected
+    assert state.update_player_input(p.id, action="direction_change", direction="diagonal_invalid") is False
+    assert state.get_player_input(p.id)["direction"] == "none"
+
+    # Buttons press / release
+    assert state.update_player_input(p.id, action="press", button="a") is True
+    assert state.get_player_input(p.id)["buttons"]["a"] is True
+    assert state.get_player_input(p.id)["buttons"]["b"] is False
+    assert received_signals[-1] == ("p1", "press", None, "a")
+
+    assert state.update_player_input(p.id, action="press", button="b") is True
+    assert state.get_player_input(p.id)["buttons"]["a"] is True
+    assert state.get_player_input(p.id)["buttons"]["b"] is True
+
+    assert state.update_player_input(p.id, action="release", button="a") is True
+    assert state.get_player_input(p.id)["buttons"]["a"] is False
+    assert state.get_player_input(p.id)["buttons"]["b"] is True
+    assert received_signals[-1] == ("p1", "release", None, "a")
+
+    # Invalid button rejected
+    assert state.update_player_input(p.id, action="press", button="x") is False
+
+    # Unknown player
+    assert state.update_player_input("unknown_id", action="press", button="a") is False
+    assert state.get_player_input("unknown_id") is None
+
+
+@pytest.mark.asyncio
+async def test_ws_input_events_realtime():
+    state = LobbyState()
+    app = create_app(state)
+
+    async with TestClient(TestServer(app)) as client:
+        ws = await client.ws_connect("/ws")
+        await ws.send_json({"type": "join", "name": "Speedy"})
+        msg = await ws.receive_json()
+        assert msg["type"] == "joined"
+        player_id = msg["player"]["id"]
+
+        # Send direction_change
+        await ws.send_json({
+            "type": "input",
+            "action": "direction_change",
+            "direction": "left",
+        })
+        # Allow event loop processing
+        await asyncio.sleep(0.02)
+        inp = state.get_player_input(player_id)
+        assert inp is not None
+        assert inp["direction"] == "left"
+
+        # Send simultaneous buttons press (A then B)
+        await ws.send_json({"type": "input", "action": "press", "button": "a"})
+        await ws.send_json({"type": "input", "action": "press", "button": "b"})
+        await asyncio.sleep(0.02)
+        inp = state.get_player_input(player_id)
+        assert inp["buttons"] == {"a": True, "b": True}
+
+        # Release button B and change direction
+        await ws.send_json({"type": "input", "action": "release", "button": "b"})
+        await ws.send_json({
+            "type": "input",
+            "action": "direction_change",
+            "direction": "down",
+        })
+        await asyncio.sleep(0.02)
+        inp = state.get_player_input(player_id)
+        assert inp["direction"] == "down"
+        assert inp["buttons"] == {"a": True, "b": False}
+
+        await ws.close()
+
+
+@pytest.mark.asyncio
+async def test_static_assets_serving_and_gamepad_dom():
+    state = LobbyState()
+    app = create_app(state)
+
+    async with TestClient(TestServer(app)) as client:
+        # GET /
+        resp_index = await client.get("/")
+        assert resp_index.status == 200
+        html = await resp_index.text()
+        assert 'id="controller-screen"' in html
+        assert 'id="dpad"' in html
+        assert 'id="btn-a"' in html
+        assert 'id="btn-b"' in html
+        assert 'id="ctrl-ping-btn"' in html
+        assert 'id="ctrl-disconnect-btn"' in html
+
+        # GET /app.js
+        resp_js = await client.get("/app.js")
+        assert resp_js.status == 200
+        js = await resp_js.text()
+        assert "direction_change" in js
+        assert "calculateDpadDirection" in js
+        assert "has-controller-active" in js
+
+        # GET /style.css
+        resp_css = await client.get("/style.css")
+        assert resp_css.status == 200
+        css = await resp_css.text()
+        assert "gamepad-surface" in css
+        assert "action-cluster" in css
+        assert "touch-action: none" in css

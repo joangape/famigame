@@ -45,3 +45,21 @@
 - [x] Todos los tests pasan (`.venv/bin/pytest -v`)
 - [x] `main.py` arranca servidor + ventana Pygame y responde a conexiones WebSocket en vivo
 
+---
+
+## Task 4: Mando Web Táctil (D-Pad + Botones A/B + Modos Horiz/Vert)
+**Description:** Construir la interfaz del mando de juego táctil móvil con cruceta digital (D-pad), botones A y B, soporte multi-touch simultáneo, retroalimentación háptica, prevención de gestos y modos horizontal y vertical conmutables.
+
+**Acceptance criteria:**
+- [x] Multi-touch funcional: control de dirección y botones A/B simultáneamente sin interferencias ni bloqueos usando `Touch.identifier`.
+- [x] Desactivación de gestos de zoom y rebote en iOS Safari y Android Chrome (`touch-action: none`, `user-select: none`, `preventDefault` en eventos táctiles).
+- [x] Retroalimentación háptica (vibración sutil en pulsaciones con `navigator.vibrate`).
+- [x] Envío de eventos en tiempo real al WebSocket del servidor (`press`, `release`, `direction_change`) y registro síncrono en `LobbyState`/`Player`.
+- [x] Dos modos de presentación (Horizontal y Vertical) alternables mediante botón de orientación (`#ctrl-orientation-btn`).
+- [x] Atajos de teclado para pruebas de desarrollo en desktop (WASD/Flechas + J/K/Z/X).
+
+**Verification:**
+- [x] Tests unitarios y de integración WebSocket pasan: `.venv/bin/pytest tests/test_server.py -v`.
+- [x] Verificación de assets estáticos y elementos DOM del mando: `test_static_assets_serving_and_gamepad_dom`.
+
+

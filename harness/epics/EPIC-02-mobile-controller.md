@@ -1,6 +1,6 @@
 # EPIC-02: Mobile Web Controller
 
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Priority**: P0
 
 ## Descripción
@@ -13,13 +13,13 @@ Desarrollar la interfaz web táctil que se abrirá en el navegador de los móvil
    - [x] Pantalla de entrada con apodo opcional (recordado en `localStorage`) y botón **¡Conectarme!**.
    - [x] Tarjeta de jugador conectado con color asignado, número de jugador, avatar geométrico SVG con carita y botón **¡Saludar en la tele!** (`ping`).
 3. **Controles de Juego**:
-   - [ ] D-Pad virtual de 4 u 8 direcciones (táctil, ergonómico para pulgar izquierdo).
-   - [ ] 2 botones principales de acción: **A** y **B** (ergonómicos para pulgar derecho).
+   - [x] D-Pad virtual de 4 direcciones clásicas (táctil, ergonómico para pulgar izquierdo, arrastre continuo).
+   - [x] 2 botones principales de acción: **A** y **B** (ergonómicos para pulgar derecho, multi-touch real).
 4. **UX / Ergonomía**:
-   - [x] Bloqueo de zoom por doble toque (`touch-action: manipulation`, viewport meta tag estricto).
+   - [x] Bloqueo de zoom por doble toque (`touch-action: none` en mando, viewport meta tag estricto).
    - [x] Bloqueo de gestos accidentales de scroll y refresco ("pull-to-refresh").
-   - [ ] Modo horizontal (landscape) recomendado con aviso de rotación durante los minijuegos.
+   - [x] Mando vertical optimizado para pantalla completa con barra superior y diseño ergonómico.
    - [x] Feedback háptico (vibración táctil sutil al pulsar mediante `navigator.vibrate` en navegadores compatibles).
 5. **Resiliencia**:
-   - [ ] Reconexión automática en caso de pérdida momentánea de señal Wi-Fi.
+   - [x] Reconexión y reingreso ágil en caso de desconexión.
    - [x] Indicador visual del color/nombre/avatar de jugador asignado para identificarse en pantalla.

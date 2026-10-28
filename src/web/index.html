@@ -48,7 +48,68 @@
       </div>
     </section>
 
-    <!-- View 2: Connected Screen -->
+    <!-- View 2: Connected / Controller Screen -->
+    <section id="controller-screen" class="screen" aria-label="Mando de juego" hidden>
+      <!-- Top Bar / Utilities -->
+      <header class="controller-topbar">
+        <div class="player-pill">
+          <div id="ctrl-avatar" class="ctrl-mini-avatar" aria-hidden="true"></div>
+          <div class="ctrl-player-info">
+            <span id="ctrl-badge" class="ctrl-badge">JUGADOR #1</span>
+            <span id="ctrl-name" class="ctrl-name">Jugador 1</span>
+          </div>
+        </div>
+
+        <div class="ctrl-actions">
+          <button id="ctrl-ping-btn" class="retro-btn btn-pill btn-sunny" type="button" aria-label="Saludar en la tele">
+            <span class="btn-icon">👋</span> <span class="btn-text">Saludar</span>
+          </button>
+          <button id="ctrl-disconnect-btn" class="retro-btn btn-pill btn-secondary" type="button" aria-label="Desconectar">
+            ✕
+          </button>
+        </div>
+      </header>
+
+      <div id="ctrl-toast" class="ctrl-toast" role="status" aria-live="polite" hidden></div>
+
+      <!-- Main Gamepad Surface (Vertical Game Boy Style) -->
+      <div class="gamepad-surface">
+        <!-- Top Section: D-Pad -->
+        <div class="gamepad-wing dpad-wing">
+          <div id="dpad" class="dpad" role="group" aria-label="Cruceta digital">
+            <button id="dpad-up" class="dpad-btn dpad-up" data-dir="up" type="button" aria-label="Arriba">
+              <span class="dpad-arrow">▲</span>
+            </button>
+            <button id="dpad-left" class="dpad-btn dpad-left" data-dir="left" type="button" aria-label="Izquierda">
+              <span class="dpad-arrow">◀</span>
+            </button>
+            <div class="dpad-center" aria-hidden="true">
+              <div class="dpad-center-well"></div>
+            </div>
+            <button id="dpad-right" class="dpad-btn dpad-right" data-dir="right" type="button" aria-label="Derecha">
+              <span class="dpad-arrow">▶</span>
+            </button>
+            <button id="dpad-down" class="dpad-btn dpad-down" data-dir="down" type="button" aria-label="Abajo">
+              <span class="dpad-arrow">▼</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Section: Action Buttons A & B -->
+        <div class="gamepad-wing action-wing">
+          <div class="action-cluster" role="group" aria-label="Botones de acción">
+            <button id="btn-b" class="action-btn btn-action-b" data-button="b" type="button" aria-label="Botón B">
+              <span class="action-btn-letter">B</span>
+            </button>
+            <button id="btn-a" class="action-btn btn-action-a" data-button="a" type="button" aria-label="Botón A">
+              <span class="action-btn-letter">A</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- View 3 (Fallback/Optional): Connected Card Screen -->
     <section id="connected-screen" class="screen" aria-labelledby="player-name-display" hidden>
       <div id="player-card" class="retro-card player-card">
         <div id="player-badge" class="player-badge">JUGADOR #1</div>
@@ -62,10 +123,12 @@
       </div>
 
       <div class="action-stack">
+        <button id="to-gamepad-btn" class="retro-btn btn-primary" type="button">
+          🎮 ABRIR MANDO
+        </button>
         <button id="ping-btn" class="retro-btn btn-sunny" type="button">
           👋 ¡SALUDAR EN LA TELE!
         </button>
-
         <button id="disconnect-btn" class="retro-btn btn-secondary" type="button">
           Salir / Cambiar nombre
         </button>

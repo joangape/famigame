@@ -145,6 +145,17 @@ def create_app(state: LobbyState, web_dir: Path | None = None) -> web.Applicatio
                         await ws.send_json(
                             {"type": "pong", "player_id": current_player.id}
                         )
+                    elif msg_type == "input" and current_player is not None:
+                        action = msg_data.get("action")
+                        direction = msg_data.get("direction")
+                        button = msg_data.get("button")
+                        if isinstance(action, str):
+                            state.update_player_input(
+                                current_player.id,
+                                action=action,
+                                direction=direction if isinstance(direction, str) else None,
+                                button=button if isinstance(button, str) else None,
+                            )
                 elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
                     break
         finally:

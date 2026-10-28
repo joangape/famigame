@@ -43,6 +43,22 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+html.has-controller-active,
+body.has-controller-active {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+body.has-controller-active .brand-header {
+  display: none !important;
+}
+
 .app-shell {
   width: 100%;
   max-width: 440px;
@@ -55,6 +71,21 @@ html, body {
   flex-direction: column;
   justify-content: center;
   gap: 18px;
+  transition: max-width 0.2s ease;
+}
+
+body.has-controller-active .app-shell,
+.app-shell:has(#controller-screen:not([hidden])) {
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin-inline: auto;
+  padding: max(8px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  justify-content: stretch;
+  gap: 10px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* Header Badge */
@@ -414,6 +445,299 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ==========================================================================
+   GAMEPAD CONTROLLER SCREEN (TASK-004)
+   ========================================================================== */
+
+#controller-screen {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Top Bar */
+.controller-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--surface);
+  border: var(--border-med);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  box-shadow: 0 4px 0 var(--ink);
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.player-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ctrl-mini-avatar {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctrl-mini-avatar svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ctrl-player-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.ctrl-badge {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+}
+
+.ctrl-name {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.ctrl-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-pill {
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 3px 0 var(--ink);
+}
+
+.btn-pill:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.ctrl-toast {
+  align-self: center;
+  background: var(--sunny);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 900;
+  padding: 4px 14px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 3px 0 var(--ink);
+  animation: pop-in 0.2s ease-out;
+}
+
+/* Gamepad Surface & Wings (Vertical Retro Style) */
+.gamepad-surface {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  background: #FFFDF8;
+  border: var(--border-thick);
+  border-radius: 28px;
+  box-shadow: var(--shadow-card);
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+  gap: 20px;
+  min-height: 0;
+  touch-action: none;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.gamepad-wing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  touch-action: none;
+}
+
+/* ==========================================================================
+   D-PAD (CRUCETA DIGITAL)
+   ========================================================================== */
+
+.dpad {
+  display: grid;
+  grid-template-areas:
+    ".    up    ."
+    "left center right"
+    ".    down  .";
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(3, 58px);
+  position: relative;
+  filter: drop-shadow(0 6px 0 var(--ink));
+  touch-action: none;
+}
+
+.dpad-btn {
+  background: #3B3E5B;
+  color: #FFFFFF;
+  border: 3px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  touch-action: none;
+  transition: background-color 0.08s ease, transform 0.05s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dpad-up {
+  grid-area: up;
+  border-radius: 14px 14px 0 0;
+  border-bottom: none;
+}
+
+.dpad-down {
+  grid-area: down;
+  border-radius: 0 0 14px 14px;
+  border-top: none;
+}
+
+.dpad-left {
+  grid-area: left;
+  border-radius: 14px 0 0 14px;
+  border-right: none;
+}
+
+.dpad-right {
+  grid-area: right;
+  border-radius: 0 14px 14px 0;
+  border-left: none;
+}
+
+.dpad-center {
+  grid-area: center;
+  background: #3B3E5B;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.dpad-center-well {
+  width: 22px;
+  height: 22px;
+  background: #2B2D42;
+  border-radius: 50%;
+  border: 2px solid #50547A;
+}
+
+.dpad-arrow {
+  color: #E2E4F0;
+  font-size: 1rem;
+  line-height: 1;
+  pointer-events: none;
+  transition: transform 0.08s ease, color 0.08s ease;
+}
+
+/* D-Pad Active States */
+.dpad-btn:active,
+.dpad-btn.is-active {
+  background: var(--sunny);
+  color: var(--ink);
+}
+
+.dpad-btn:active .dpad-arrow,
+.dpad-btn.is-active .dpad-arrow {
+  color: var(--ink);
+  transform: scale(1.2);
+}
+
+/* ==========================================================================
+   ACTION BUTTONS A & B
+   ========================================================================== */
+
+.action-cluster {
+  position: relative;
+  width: 220px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.action-btn {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: var(--border-thick);
+  box-shadow: 0 6px 0 var(--ink);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+  transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.08s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn-action-b {
+  left: 20px;
+  bottom: 8px;
+  background: var(--coral);
+  color: #FFFFFF;
+}
+
+.btn-action-a {
+  right: 20px;
+  top: 8px;
+  background: var(--mint);
+  color: var(--ink);
+}
+
+.action-btn:active,
+.action-btn.is-active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--ink);
+  filter: brightness(0.92);
 }
 
 @media (prefers-reduced-motion: reduce) {

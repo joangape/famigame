@@ -100,3 +100,26 @@ def test_main_cli_runs_frames_and_exits_cleanly():
         timeout=15,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
+
+
+def test_main_cli_debug_gamepad_flag():
+    from main import parse_args
+    args = parse_args(["--debug-gamepad"])
+    assert args.debug_gamepad is True
+
+    default_args = parse_args([])
+    assert default_args.debug_gamepad is False
+
+    env = os.environ.copy()
+    env["SDL_VIDEODRIVER"] = "dummy"
+    env["SDL_AUDIODRIVER"] = "dummy"
+    result = subprocess.run(
+        [sys.executable, "main.py", "--frames", "2", "--port", "0", "--debug-gamepad"],
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    assert "Gamepad debug mode active" in result.stdout
