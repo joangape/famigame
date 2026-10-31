@@ -4,6 +4,7 @@ from enum import Enum
 import time
 import pygame
 
+from src.audio import SoundEngine, get_sound_engine
 from src.host_ui import (
     ACCENT_CORAL,
     ACCENT_MINT,
@@ -47,15 +48,21 @@ DEFAULT_DEMO_MINIGAME = MinigameInfo(
 
 
 class HostScreenManager:
-    def __init__(self, url: str, min_players: int = 2) -> None:
+    def __init__(
+        self,
+        url: str,
+        min_players: int = 2,
+        sound_engine: SoundEngine | None = None,
+    ) -> None:
         if not pygame.font.get_init():
             pygame.font.init()
         self.url = url
         self.min_players = min_players
+        self.sound_engine = sound_engine or get_sound_engine()
         self.state: ScreenState = ScreenState.LOBBY
 
         # Screen renderers
-        self.lobby_renderer = LobbyRenderer(url)
+        self.lobby_renderer = LobbyRenderer(url, sound_engine=self.sound_engine)
         self.intro_renderer = IntroRenderer()
         self.countdown_renderer = CountdownRenderer(duration=3.0)
         self.leaderboard_renderer = LeaderboardRenderer()
@@ -67,6 +74,7 @@ class HostScreenManager:
         self.intro_start_time: float = 0.0
         self.countdown_start_time: float = 0.0
         self.countdown_duration: float = 3.0
+        self._last_countdown_stage: int | None = None
         self.scores: list[PlayerScore] = []
         self.is_final_round: bool = False
         self._cached_players: list[Player] = []
@@ -88,10 +96,12 @@ class HostScreenManager:
         self.intro_renderer.set_minigame(minigame)
         self.intro_start_time = t
         self.state = ScreenState.INTRO
+        self.sound_engine.play("start")
 
     def start_countdown(self, now: float | None = None) -> None:
         t = time.time() if now is None else now
         self.countdown_start_time = t
+        self._last_countdown_stage = None
         self.state = ScreenState.COUNTDOWN
 
     def start_game(self, now: float | None = None) -> None:
@@ -102,11 +112,13 @@ class HostScreenManager:
         self.is_final_round = is_final
         self.leaderboard_renderer.set_scores(scores, is_final=is_final)
         self.state = ScreenState.RESULTS
+        self.sound_engine.play("score")
 
     def show_podium(self, standings: list[PlayerScore] | None = None) -> None:
         podium_scores = standings if standings is not None else self.scores
         self.podium_renderer.set_standings(podium_scores)
         self.state = ScreenState.PODIUM
+        self.sound_engine.play("win")
 
     def reset_to_lobby(self) -> None:
         self.state = ScreenState.LOBBY
@@ -132,6 +144,24 @@ class HostScreenManager:
         elif self.state == ScreenState.COUNTDOWN:
             elapsed = now - self.countdown_start_time
             remaining = self.countdown_duration - elapsed
+
+            # Sonidos de cuenta atrás (3, 2, 1, ¡YA!)
+            if remaining > 2.0:
+                stage = 3
+            elif remaining > 1.0:
+                stage = 2
+            elif remaining > 0.0:
+                stage = 1
+            else:
+                stage = 0  # ¡YA!
+
+            if stage != self._last_countdown_stage:
+                self._last_countdown_stage = stage
+                if stage > 0:
+                    self.sound_engine.play("countdown_tick")
+                else:
+                    self.sound_engine.play("countdown_go")
+
             if remaining <= -0.5:
                 self.start_game(now=now)
 
@@ -156,6 +186,7 @@ class HostScreenManager:
                 player, action, direction=direction, button=button
             )
             if handled:
+                self.sound_engine.play("click")
                 self.start_countdown()
                 return True
             return False
@@ -185,6 +216,7 @@ class HostScreenManager:
                 player, action, direction=direction, button=button
             )
             if handled:
+                self.sound_engine.play("click")
                 if self.is_final_round:
                     self.show_podium()
                 elif self.next_minigame is not None:
@@ -201,6 +233,7 @@ class HostScreenManager:
                 player, action, direction=direction, button=button
             )
             if handled:
+                self.sound_engine.play("click")
                 self.reset_to_lobby()
                 return True
             return False

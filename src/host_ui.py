@@ -6,6 +6,7 @@ import time
 import pygame
 import qrcode
 
+from src.audio import SoundEngine, get_sound_engine
 from src.state import Player
 
 BG_CREAM = (255, 248, 231)  # #FFF8E7
@@ -218,10 +219,11 @@ def draw_cute_avatar(
 
 
 class LobbyRenderer:
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, sound_engine: SoundEngine | None = None) -> None:
         if not pygame.font.get_init():
             pygame.font.init()
         self.url = url
+        self.sound_engine = sound_engine or get_sound_engine()
         self.qr_surface = generate_qr_surface(url, size=500)
         self._cached_qr_size: int = 0
         self._cached_qr_scaled: pygame.Surface | None = None
@@ -262,9 +264,11 @@ class LobbyRenderer:
         if action == "direction_change" and direction:
             if direction in ("up", "left"):
                 self.selected_menu_index = (self.selected_menu_index - 1) % len(self.menu_options)
+                self.sound_engine.play("click")
                 return True
             elif direction in ("down", "right"):
                 self.selected_menu_index = (self.selected_menu_index + 1) % len(self.menu_options)
+                self.sound_engine.play("click")
                 return True
 
         elif action == "press" and button:
@@ -274,19 +278,25 @@ class LobbyRenderer:
                         self.trigger_warning(
                             "¡Se necesitan al menos 2 jugadores para jugar!", duration=3.0
                         )
+                        self.sound_engine.play("warning")
                         return False
                     self.warning_message = None
                     self.warning_until = 0.0
                     self.is_launching = True
                     self.launch_started_at = time.time()
+                    self.sound_engine.play("start")
                     return True
                 elif self.selected_menu_index == 1:
                     self.sound_enabled = not self.sound_enabled
                     self.menu_options[1] = f"SONIDO: {'SÍ' if self.sound_enabled else 'NO'}"
+                    self.sound_engine.set_muted(not self.sound_enabled)
+                    if self.sound_enabled:
+                        self.sound_engine.play("click")
                     return True
             elif button == "b":
                 if self.is_launching:
                     self.cancel_launch()
+                    self.sound_engine.play("click")
                     return True
 
         return False

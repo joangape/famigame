@@ -2,7 +2,7 @@
 
 - **Status**: TODO
 - **Priority**: P1
-- **Epic**: EPIC-04
+- **Epic**: EPIC-05
 
 ## Descripción
 Minijuego de carreras y obstáculos en scroll horizontal ("Treadmill Dash"). Todos los jugadores tienen su personaje/avatar corriendo sobre una cinta mecánica o cinta transportadora que se mueve de izquierda a derecha. A lo largo del recorrido van apareciendo obstáculos altos y bajos que los jugadores deben esquivar saltando o agachándose. Los avatares corren ligeramente más rápido que la velocidad de retroceso de la cinta. El ganador de la partida es el primer jugador en alcanzar el extremo derecho de la pantalla.

@@ -2,7 +2,7 @@
 
 - **Status**: TODO
 - **Priority**: P1
-- **Epic**: EPIC-04
+- **Epic**: EPIC-05
 
 ## Descripción
 Definir la arquitectura de plugins/módulos para minijuegos y crear el primer minijuego funcional de prueba ("Bomb Dodge" o "Button Smasher").

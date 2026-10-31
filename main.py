@@ -7,6 +7,7 @@ import time
 
 import pygame
 
+from src.audio import get_sound_engine
 from src.host_ui import HostScreenManager, LobbyRenderer
 from src.server import get_local_ip, start_background_server
 from src.state import LobbyState, Player
@@ -53,6 +54,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Print controller input signals to console in real time",
     )
+    parser.add_argument(
+        "--mute",
+        action="store_true",
+        help="Launch host with all audio muted",
+    )
+    parser.add_argument(
+        "--volume",
+        type=int,
+        default=100,
+        help="Master volume percentage (0-100, default: 100)",
+    )
     args = parser.parse_args(argv)
     if args.fhd:
         args.resolution = "1920x1080"
@@ -86,7 +98,17 @@ def main(argv: list[str] | None = None) -> int:
     screen = pygame.display.set_mode((res_w, res_h), flags)
     pygame.display.set_caption("Famigame - Lobby")
 
-    manager = HostScreenManager(url)
+    sound_engine = get_sound_engine()
+    if args.mute:
+        sound_engine.set_muted(True)
+    sound_engine.set_master_volume(max(0, min(100, args.volume)) / 100.0)
+
+    manager = HostScreenManager(url, sound_engine=sound_engine)
+
+    def _on_player_event(event_type: str, player: Player) -> None:
+        sound_engine.play(event_type)
+
+    state.set_event_listener(_on_player_event)
 
     def _on_input(player: Player, action: str, direction: str | None, button: str | None) -> None:
         if args.debug_gamepad:
@@ -149,6 +171,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.frames > 0 and frames_rendered >= args.frames:
             running = False
 
+    sound_engine.stop_all()
     pygame.quit()
     return 0
 

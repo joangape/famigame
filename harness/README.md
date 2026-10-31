@@ -18,7 +18,8 @@ harness/
 │   ├── EPIC-01-core-architecture.md
 │   ├── EPIC-02-mobile-controller.md
 │   ├── EPIC-03-host-display-lobby.md
-│   └── EPIC-04-minigames-engine.md
+│   ├── EPIC-04-sound-engine.md
+│   └── EPIC-05-minigames-engine.md
 ├── tasks/                  # Tareas individuales accionables
 │   ├── TASK-001-stack-selection-adr.md
 │   ├── ...

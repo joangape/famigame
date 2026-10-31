@@ -1,4 +1,4 @@
-# EPIC-04: Minigames Engine & Initial Minigames
+# EPIC-05: Minigames Engine & Initial Minigames
 
 - **Status**: TODO
 - **Priority**: P1

@@ -43,7 +43,7 @@ La pantalla principal del sistema Famigame, emitida vía HDMI hacia la televisi�
   - **Cero copia de memoria intermedia**: El dibujo se realiza una sola vez directamente sobre la superficie de pantalla configurada (720p o 1080p).
   - **Rendimiento óptimo**: 60 FPS estables tanto a 720p (~4.2 ms/frame, CPU < 18%) como a 1080p (~8.6 ms/frame, CPU ~32%) en Raspberry Pi 3.
   - **Alta calidad visual**: Fuentes y formas geométricas con bordes nítidos nativos a cualquier resolución sin artefactos de estiramiento.
-  - **Modularidad para EPIC-04**: El estado `GAME` delega la gestión de inputs y dibujo a cualquier motor de minijuego que implemente la interfaz estándar sin afectar el flujo de intros, cuentas atrás o marcadores.
+  - **Modularidad para EPIC-05 (Minijuegos)**: El estado `GAME` delega la gestión de inputs y dibujo a cualquier motor de minijuego que implemente la interfaz estándar sin afectar el flujo de intros, cuentas atrás o marcadores.
 
 ---
 
@@ -60,7 +60,7 @@ Se adopta la **Opción 2**:
 
 ### Positivas
 - **Separación de responsabilidades clara**: La orquestación temporal y de inputs se concentra en `HostScreenManager`, mientras que el aspecto gráfico reside en sus respectivos renderers modulares.
-- **Preparado para EPIC-04**: Integración limpia de nuevos minijuegos conectando su lógica al estado `GAME` sin acoplamiento con la interfaz del sistema.
+- **Preparado para EPIC-05 (Minijuegos)**: Integración limpia de nuevos minijuegos conectando su lógica al estado `GAME` sin acoplamiento con la interfaz del sistema.
 - **Excelente fluidez en hardware limitado**: 60 FPS consistentes en la Raspberry Pi 3 sin sobrecalentamiento ni caídas de frames perceptibles.
 - **Soporte multi-resolución robusto**: Compatible con pantallas de TV de 720p, 1080p y configuraciones personalizadas sin requerir cambios estructurales en el código.
 

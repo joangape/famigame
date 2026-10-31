@@ -63,6 +63,7 @@ class LobbyState:
         self._players: dict[str, Player] = {}
         self._counter = 0
         self._input_listener: Callable[[Player, str, str | None, str | None], None] | None = None
+        self._event_listener: Callable[[str, Player], None] | None = None
 
     def _recalculate_capitan_locked(self) -> None:
         if not self._players:
@@ -90,6 +91,13 @@ class LobbyState:
         with self._lock:
             self._input_listener = callback
 
+    def set_event_listener(
+        self,
+        callback: Callable[[str, Player], None] | None,
+    ) -> None:
+        with self._lock:
+            self._event_listener = callback
+
     def add_player(self, name: str = "") -> Player:
         with self._lock:
             self._counter += 1
@@ -113,12 +121,27 @@ class LobbyState:
             )
             self._players[player.id] = player
             self._recalculate_capitan_locked()
-            return player
+            listener = self._event_listener
+
+        if listener is not None:
+            try:
+                listener("join", player)
+            except Exception:
+                pass
+        return player
 
     def remove_player(self, player_id: str) -> None:
+        removed: Player | None = None
         with self._lock:
-            self._players.pop(player_id, None)
+            removed = self._players.pop(player_id, None)
             self._recalculate_capitan_locked()
+            listener = self._event_listener
+
+        if listener is not None and removed is not None:
+            try:
+                listener("leave", removed)
+            except Exception:
+                pass
 
     def trigger_ping(self, player_id: str) -> bool:
         with self._lock:
@@ -126,7 +149,14 @@ class LobbyState:
             if player is None:
                 return False
             player.last_ping_at = time.time()
-            return True
+            listener = self._event_listener
+
+        if listener is not None and player is not None:
+            try:
+                listener("ping", player)
+            except Exception:
+                pass
+        return True
 
     def update_player_input(
         self,

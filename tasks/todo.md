@@ -64,6 +64,24 @@
 
 ---
 
+## Task: Motor de Sonidos y Efectos de Audio (Sound Effects Engine) — TASK-011 (EPIC-04)
+**Description:** Implementar el motor central de audio (`SoundEngine`) para Famigame, proporcionando efectos sonoros retro-cute tanto en menús (lobby, avisos, transiciones, interacción de jugadores) como en minijuegos futuros (disparos, saltos, impactos, explosiones).
+
+**Acceptance criteria:**
+- [x] Motor de sonido autónomo (`src/audio.py`) con inicialización segura en `pygame.mixer` y fallback transparente en entornos headless / sin audio hardware.
+- [x] Síntesis procedural en memoria de ondas retro mediante `wave` y `struct` (cero dependencias de archivos externos obligatorios): `click`, `join`, `leave`, `ping`, `start`, `warning`, `countdown_tick`, `countdown_go`, `score`, `win`, `jump`, `shoot`, `hit`, `explosion`.
+- [x] Soporte para anulación opcional con archivos `.wav` o `.ogg` en `assets/sounds/`.
+- [x] Controles de volumen master y sfx, y silenciado (`set_muted`, `toggle_mute`, `is_muted`).
+- [x] Integración en `LobbyRenderer` (navegación, advertencia < 2 jugadores, lanzamiento, sincronización con toggle "SONIDO: SÍ/NO").
+- [x] Integración en `LobbyState` y `main.py` mediante listener de eventos (`join`, `leave`, `ping`).
+- [x] Integración en `HostScreenManager` (ticks de cuenta atrás 3, 2, 1, ¡YA!, podio y resultados).
+
+**Verification:**
+- [x] Tests unitarios y de integración: `.venv/bin/pytest tests/test_audio.py -v`.
+- [x] Suite completa pasando: 64 de 64 tests en verde.
+
+---
+
 ## Task 5: Minijuego Disk Shooter (Disparo a Discos Menguantes) — TASK-009
 **Description:** Implementar el minijuego de puntería y reflejos en tiempo real. Cada jugador controla una retícula en pantalla identificada con su color y avatar. Aparecen discos en posiciones aleatorias que se desplazan y reducen su tamaño progresivamente hasta desaparecer. El primer jugador que dispara al disco con el botón A se anota un punto.
 

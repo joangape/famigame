@@ -2,7 +2,7 @@
 
 - **Status**: TODO
 - **Priority**: P1
-- **Epic**: EPIC-04
+- **Epic**: EPIC-05
 
 ## Descripción
 Minijuego de puntería y reflejos en tiempo real ("Disk Shooter"). Cada jugador controla una retícula o mira personalizada con su color y avatar en la pantalla principal. En la pantalla van apareciendo discos en posiciones aleatorias que se desplazan y reducen su tamaño progresivamente hasta desaparecer. El primer jugador en disparar e impactar un disco gana un punto.
