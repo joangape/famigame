@@ -62,4 +62,35 @@
 - [x] Tests unitarios y de integración WebSocket pasan: `.venv/bin/pytest tests/test_server.py -v`.
 - [x] Verificación de assets estáticos y elementos DOM del mando: `test_static_assets_serving_and_gamepad_dom`.
 
+---
+
+## Task 5: Minijuego Disk Shooter (Disparo a Discos Menguantes) — TASK-009
+**Description:** Implementar el minijuego de puntería y reflejos en tiempo real. Cada jugador controla una retícula en pantalla identificada con su color y avatar. Aparecen discos en posiciones aleatorias que se desplazan y reducen su tamaño progresivamente hasta desaparecer. El primer jugador que dispara al disco con el botón A se anota un punto.
+
+**Acceptance criteria:**
+- [ ] Retículas independientes por jugador movidas con D-Pad y coloreadas con la identidad visual del jugador.
+- [ ] Generación continua de discos en posiciones y trayectorias aleatorias con encogimiento progresivo temporal.
+- [ ] Detección síncrona de colisión y registro exclusivo de punto al primer jugador que acierte al disco.
+- [ ] Efectos visuales retro-cute: pop de partículas al impactar, retroceso de retícula y vibración háptica en móvil.
+- [ ] Marcador en tiempo real con límite de tiempo/rondas y pantalla de podio final.
+
+**Verification:**
+- [ ] Tests unitarios de física, colisiones y puntuación en `tests/test_minigame_disk_shooter.py`.
+
+---
+
+## Task 6: Minijuego Treadmill Dash (Carrera de Obstáculos en la Cinta) — TASK-010
+**Description:** Implementar el minijuego de carreras horizontales sobre cinta transportadora. Los avatares de todos los jugadores corren hacia adelante sobre una cinta mecánica móvil. Aparecen obstáculos altos (evitados agachándose con B o D-Pad Abajo) y bajos (evitados saltando con A o D-Pad Arriba). Los jugadores corren ligeramente más rápido que la cinta. El primer jugador en alcanzar el extremo derecho de la pantalla gana.
+
+**Acceptance criteria:**
+- [ ] Cinta transportadora con scroll de superficie animado y velocidad constante $V_{cinta}$.
+- [ ] Avatares con velocidad base $V_{jugador} > V_{cinta}$, permitiendo avance neto hacia la derecha.
+- [ ] Obstáculos dinámicos procedurales: bajos (saltar con botón A) y altos (agacharse con botón B).
+- [ ] Aturdimiento temporal con estrellitas al tropezar con obstáculos, arrastrando al jugador hacia atrás por la cinta.
+- [ ] Condición de victoria al alcanzar el margen derecho de la pantalla con marcador y pantalla de podio.
+
+**Verification:**
+- [ ] Tests unitarios de física de cinta, saltos, agachados y condiciones de victoria en `tests/test_minigame_treadmill_dash.py`.
+
+
 

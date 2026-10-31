@@ -19,3 +19,5 @@ Cada minijuego debe implementar un contrato o interfaz estándar:
 1. **Bomb Dodge (Esquiva la Bomba)**: Caen bombas del cielo o persiguen a los jugadores; gana el último en pie o quien más tiempo aguante.
 2. **Button Smasher (Carrera a tope)**: Carrera en pista recta donde pulsar rápidamente los botones A y B alternos hace correr al personaje.
 3. **Coin Rush (Lluvia de Monedas)**: Recoger la mayor cantidad de monedas que aparecen en la arena antes de que se agote el tiempo.
+4. **Disk Shooter (Caza de Discos Menguantes - TASK-009)**: Cada jugador controla una retícula en pantalla. Aparecen discos en posiciones aleatorias que se mueven y encogen hasta desaparecer. El primer jugador que dispara al disco suma 1 punto.
+5. **Treadmill Dash (Carrera de Obstáculos en la Cinta - TASK-010)**: Los avatares corren sobre una cinta transportadora que se mueve de izquierda a derecha. Aparecen obstáculos altos y bajos que deben saltar o esquivar agachándose. Los jugadores se desplazan ligeramente más rápido que la cinta. Gana el primero en cruzar el margen derecho de la pantalla.

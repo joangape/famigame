@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -15,7 +16,8 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 import pytest
 
-from src.host_ui import LobbyRenderer, draw_cute_avatar, generate_qr_surface, hex_to_rgb
+from main import parse_args, parse_resolution
+from src.host_ui import LobbyRenderer, draw_cute_avatar, generate_qr_surface, get_scale_factor, hex_to_rgb
 from src.state import PLAYER_COLORS, PLAYER_SHAPES, Player
 
 
@@ -212,6 +214,7 @@ def test_lobby_menu_navigation_capitan_only():
 
 def test_lobby_menu_launch_and_cancel():
     renderer = LobbyRenderer("http://192.168.1.50:8080")
+    screen = pygame.Surface((1280, 720))
     capitan = Player(
         id="p1",
         number=1,
@@ -233,6 +236,8 @@ def test_lobby_menu_launch_and_cancel():
         is_capitan=False,
     )
 
+    renderer.render(screen, [capitan, other], now=1000.0)
+
     # Non-capitan Button A ignored
     res = renderer.handle_input(other, "press", button="a")
     assert res is False
@@ -246,8 +251,7 @@ def test_lobby_menu_launch_and_cancel():
     assert renderer.launch_started_at is not None
 
     # Render while launching includes launch overlay without error
-    screen = pygame.Surface((1280, 720))
-    renderer.render(screen, [capitan], now=1005.0)
+    renderer.render(screen, [capitan, other], now=1005.0)
 
     # Capitán Button B cancels launch
     res = renderer.handle_input(capitan, "press", button="b")
@@ -279,6 +283,7 @@ def test_main_input_wiring_and_host_keyboard_simulation():
 
     state = LobbyState()
     renderer = LobbyRenderer("http://127.0.0.1:8080")
+    screen = pygame.Surface((1280, 720))
 
     # Wire listener as main.py does
     def _on_input(player, action, direction, button):
@@ -287,7 +292,10 @@ def test_main_input_wiring_and_host_keyboard_simulation():
     state.set_input_listener(_on_input)
 
     p1 = state.add_player("Alice")
+    p2 = state.add_player("Bob")
     assert p1.is_capitan is True
+
+    renderer.render(screen, state.snapshot(), now=10.0)
 
     # Mobile d-pad event updates state and triggers renderer.handle_input
     state.update_player_input(p1.id, "direction_change", direction="right")
@@ -314,5 +322,197 @@ def test_main_input_wiring_and_host_keyboard_simulation():
     # Press Backspace (Button B) -> cancels launch
     renderer.handle_input(_get_active_capitan(), "press", button="b")
     assert renderer.is_launching is False
+
+
+def test_lobby_start_blocked_when_less_than_two_players():
+    screen = pygame.Surface((1280, 720))
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    capitan = Player(
+        id="p1",
+        number=1,
+        name="Capitán",
+        color=PLAYER_COLORS[0],
+        shape=PLAYER_SHAPES[0],
+        connected_at=10.0,
+        last_ping_at=10.0,
+        is_capitan=True,
+    )
+
+    # 0 players (empty)
+    res = renderer.handle_input(capitan, "press", button="a", players=[])
+    assert res is False
+    assert renderer.is_launching is False
+    assert renderer.warning_message == "¡Se necesitan al menos 2 jugadores para jugar!"
+    assert renderer.warning_until > 0
+
+    # 1 player (only captain cached via render)
+    renderer.render(screen, [capitan], now=10.0)
+    res = renderer.handle_input(capitan, "press", button="a")
+    assert res is False
+    assert renderer.is_launching is False
+    assert renderer.warning_message == "¡Se necesitan al menos 2 jugadores para jugar!"
+
+
+def test_lobby_start_allowed_when_two_or_more_players():
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    capitan = Player(
+        id="p1",
+        number=1,
+        name="Capitán",
+        color=PLAYER_COLORS[0],
+        shape=PLAYER_SHAPES[0],
+        connected_at=10.0,
+        last_ping_at=10.0,
+        is_capitan=True,
+    )
+    p2 = Player(
+        id="p2",
+        number=2,
+        name="Jugador 2",
+        color=PLAYER_COLORS[1],
+        shape=PLAYER_SHAPES[1],
+        connected_at=11.0,
+        last_ping_at=11.0,
+        is_capitan=False,
+    )
+
+    # Set warning first
+    renderer.trigger_warning("¡Se necesitan al menos 2 jugadores para jugar!", duration=3.0)
+    assert renderer.warning_message is not None
+
+    # Press start with >= 2 players
+    res = renderer.handle_input(capitan, "press", button="a", players=[capitan, p2])
+    assert res is True
+    assert renderer.is_launching is True
+    assert renderer.launch_started_at is not None
+    assert renderer.warning_message is None
+
+
+def test_warning_banner_expires_cleanly():
+    screen = pygame.Surface((1280, 720))
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    now = 1000.0
+
+    renderer.trigger_warning("¡Se necesitan al menos 2 jugadores para jugar!", duration=3.0, now=now)
+    assert renderer.warning_message == "¡Se necesitan al menos 2 jugadores para jugar!"
+    assert renderer.warning_until == now + 3.0
+
+    # Baseline screen without warning
+    screen_clean = pygame.Surface((1280, 720))
+    renderer_clean = LobbyRenderer("http://192.168.1.50:8080")
+    renderer_clean.render(screen_clean, [], now=now)
+    clean_bytes = pygame.image.tobytes(screen_clean, "RGB")
+
+    # Render while warning is active (< warning_until)
+    renderer.render(screen, [], now=now + 1.0)
+    assert renderer.warning_message == "¡Se necesitan al menos 2 jugadores para jugar!"
+    warning_bytes = pygame.image.tobytes(screen, "RGB")
+    assert warning_bytes != clean_bytes
+
+    # Render after warning has expired (>= warning_until)
+    renderer.render(screen, [], now=now + 3.0)
+    assert renderer.warning_message is None
+
+
+def test_cli_resolution_parsing():
+    assert parse_resolution("1280x720") == (1280, 720)
+    assert parse_resolution("1920x1080") == (1920, 1080)
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_resolution("invalid")
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_resolution("1280")
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_resolution("800x600")
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_resolution("1920x500")
+
+    args_fhd = parse_args(["--fhd"])
+    assert args_fhd.resolution == "1920x1080"
+
+    args_res = parse_args(["--resolution", "1920x1080"])
+    assert args_res.resolution == "1920x1080"
+
+
+def test_scale_factor_and_1080p_rendering():
+    assert get_scale_factor(1280, 720) == 1.0
+    assert get_scale_factor(1920, 1080) == 1.5
+
+    screen = pygame.Surface((1920, 1080))
+    renderer = LobbyRenderer("http://192.168.1.50:8080")
+    now = 1000.0
+
+    # 0 players
+    renderer.render(screen, [], now=now)
+
+    # 2 players
+    players = [
+        Player("p1", 1, "Capitán", PLAYER_COLORS[0], PLAYER_SHAPES[0], now - 1.0, now - 0.2, is_capitan=True),
+        Player("p2", 2, "Jugador 2", PLAYER_COLORS[1], PLAYER_SHAPES[1], now - 2.0, now - 5.0, is_capitan=False),
+    ]
+    renderer.render(screen, players, now=now)
+
+    # Trigger warning card at 1080p
+    renderer.trigger_warning("¡Aviso en 1080p!", duration=3.0, now=now)
+    renderer.render(screen, players, now=now)
+
+    # Launching overlay at 1080p
+    renderer.is_launching = True
+    renderer.render(screen, players, now=now)
+
+
+def test_malformed_resolution_cli_fails_gracefully():
+    env = os.environ.copy()
+    env["SDL_VIDEODRIVER"] = "dummy"
+    env["SDL_AUDIODRIVER"] = "dummy"
+    result = subprocess.run(
+        [sys.executable, "main.py", "--resolution", "bad"],
+        cwd=str(ROOT_DIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode != 0
+
+
+def test_host_ui_reexports_screen_management():
+    from src.host_ui import (
+        CountdownRenderer,
+        HostScreenManager,
+        IntroRenderer,
+        LeaderboardRenderer,
+        MinigameInfo,
+        PlayerScore,
+        PodiumRenderer,
+        ScreenState,
+    )
+
+    manager = HostScreenManager("http://127.0.0.1:8080")
+    assert manager.state == ScreenState.LOBBY
+    assert isinstance(manager.intro_renderer, IntroRenderer)
+    assert isinstance(manager.countdown_renderer, CountdownRenderer)
+    assert isinstance(manager.leaderboard_renderer, LeaderboardRenderer)
+    assert isinstance(manager.podium_renderer, PodiumRenderer)
+
+
+def test_main_cli_runs_frames_fhd_and_exits_cleanly():
+    env = os.environ.copy()
+    env["SDL_VIDEODRIVER"] = "dummy"
+    env["SDL_AUDIODRIVER"] = "dummy"
+    result = subprocess.run(
+        [sys.executable, "main.py", "--frames", "5", "--fhd", "--port", "0"],
+        cwd=str(ROOT_DIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+
+
 
 
