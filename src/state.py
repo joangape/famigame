@@ -64,6 +64,7 @@ class LobbyState:
         self._counter = 0
         self._input_listener: Callable[[Player, str, str | None, str | None], None] | None = None
         self._event_listener: Callable[[str, Player], None] | None = None
+        self._fullscreen_listener: Callable[[], None] | None = None
 
     def _recalculate_capitan_locked(self) -> None:
         if not self._players:
@@ -97,6 +98,28 @@ class LobbyState:
     ) -> None:
         with self._lock:
             self._event_listener = callback
+
+    def set_fullscreen_listener(
+        self,
+        callback: Callable[[], None] | None,
+    ) -> None:
+        with self._lock:
+            self._fullscreen_listener = callback
+
+    def trigger_fullscreen_toggle(self, player_id: str | None = None) -> bool:
+        with self._lock:
+            if player_id is not None:
+                player = self._players.get(player_id)
+                if player is None or not player.is_capitan:
+                    return False
+            listener = self._fullscreen_listener
+
+        if listener is not None:
+            try:
+                listener()
+            except Exception:
+                pass
+        return True
 
     def add_player(self, name: str = "") -> Player:
         with self._lock:

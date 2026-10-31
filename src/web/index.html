@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#FFF8E7">
   <title>FAMIGAME — Mando Móvil</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
   <main class="app-shell">
@@ -54,6 +54,9 @@
       <div id="ctrl-role-banner" class="ctrl-role-banner" hidden>
         <span id="ctrl-capitan-badge" class="ctrl-capitan-badge" hidden>👑 CAPITÁN</span>
         <span id="ctrl-role-text">👑 Eres el Capitán</span>
+        <button id="ctrl-role-fullscreen-btn" class="retro-btn btn-pill btn-mint" type="button" aria-label="Pantalla completa" hidden>
+          <span class="btn-icon">⛶</span> <span class="btn-text">Pantalla Completa</span>
+        </button>
       </div>
 
       <!-- Top Bar / Utilities -->
@@ -67,6 +70,9 @@
         </div>
 
         <div class="ctrl-actions">
+          <button id="ctrl-fullscreen-btn" class="retro-btn btn-pill btn-mint" type="button" aria-label="Pantalla completa" hidden>
+            <span class="btn-icon">⛶</span> <span class="btn-text">Pantalla</span>
+          </button>
           <button id="ctrl-ping-btn" class="retro-btn btn-pill btn-sunny" type="button" aria-label="Saludar en la tele">
             <span class="btn-icon">👋</span> <span class="btn-text">Saludar</span>
           </button>
@@ -142,6 +148,6 @@
     </section>
   </main>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2"></script>
 </body>
 </html>

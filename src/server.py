@@ -93,15 +93,28 @@ def create_app(state: LobbyState, web_dir: Path | None = None) -> web.Applicatio
         target = (resolved_web_dir / filename).resolve()
         if resolved_web_dir not in target.parents or not target.is_file():
             raise web.HTTPNotFound()
-        return web.FileResponse(target)
+        response = web.FileResponse(target)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
     async def handle_index(_request: web.Request) -> web.StreamResponse:
         index_file = resolved_web_dir / "index.html"
         if index_file.is_file():
-            return web.FileResponse(index_file)
+            response = web.FileResponse(index_file)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
         return web.Response(
             text="<!doctype html><html><body><h1>Famigame Lobby</h1></body></html>",
             content_type="text/html",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
         )
 
     async def handle_static(request: web.Request) -> web.StreamResponse:
@@ -171,6 +184,18 @@ def create_app(state: LobbyState, web_dir: Path | None = None) -> web.Applicatio
                         await ws.send_json(
                             {"type": "pong", "player_id": current_player.id}
                         )
+                    elif msg_type == "toggle_fullscreen" and current_player is not None:
+                        if state.trigger_fullscreen_toggle(current_player.id):
+                            await ws.send_json(
+                                {"type": "fullscreen_toggled", "status": "ok"}
+                            )
+                        else:
+                            await ws.send_json(
+                                {
+                                    "type": "error",
+                                    "message": "Solo el Capitán puede alternar pantalla completa",
+                                }
+                            )
                     elif msg_type == "input" and current_player is not None:
                         action = msg_data.get("action")
                         direction = msg_data.get("direction")

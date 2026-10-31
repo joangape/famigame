@@ -17,6 +17,9 @@
   const ctrlCapitanBadge = document.getElementById("ctrl-capitan-badge");
   const ctrlName = document.getElementById("ctrl-name");
   const ctrlRoleBanner = document.getElementById("ctrl-role-banner");
+  const ctrlRoleText = document.getElementById("ctrl-role-text");
+  const ctrlRoleFullscreenBtn = document.getElementById("ctrl-role-fullscreen-btn");
+  const ctrlFullscreenBtn = document.getElementById("ctrl-fullscreen-btn");
   const ctrlPingBtn = document.getElementById("ctrl-ping-btn");
   const ctrlDisconnectBtn = document.getElementById("ctrl-disconnect-btn");
   const ctrlToast = document.getElementById("ctrl-toast");
@@ -66,6 +69,21 @@
     }
   }
 
+  function setElementVisible(el, visible, displayStyle = "inline-flex") {
+    if (!el) return;
+    if (visible) {
+      el.removeAttribute("hidden");
+      el.hidden = false;
+      el.classList.remove("is-hidden");
+      el.style.display = displayStyle;
+    } else {
+      el.setAttribute("hidden", "");
+      el.hidden = true;
+      el.classList.add("is-hidden");
+      el.style.display = "none";
+    }
+  }
+
   function showStatus(text, isError = false) {
     if (!text) {
       statusMsg.hidden = true;
@@ -91,16 +109,20 @@
   function showConnectScreen(notice = "", isError = false) {
     document.body.classList.remove("has-controller-active");
     document.documentElement.classList.remove("has-controller-active");
-    if (controllerScreen) controllerScreen.hidden = true;
-    if (connectedScreen) connectedScreen.hidden = true;
-    connectScreen.hidden = false;
+    if (controllerScreen) setElementVisible(controllerScreen, false);
+    if (connectedScreen) setElementVisible(connectedScreen, false);
+    setElementVisible(connectScreen, true, "block");
     connectBtn.disabled = false;
     connectBtn.textContent = "¡CONECTARME!";
     resetInputState();
-    if (ctrlCapitanBadge) ctrlCapitanBadge.hidden = true;
+    setElementVisible(ctrlCapitanBadge, false);
+    setElementVisible(ctrlFullscreenBtn, false);
+    setElementVisible(ctrlRoleFullscreenBtn, false);
     if (ctrlRoleBanner) {
-      ctrlRoleBanner.hidden = true;
-      ctrlRoleBanner.textContent = "";
+      setElementVisible(ctrlRoleBanner, false);
+      if (ctrlRoleText) {
+        ctrlRoleText.textContent = "";
+      }
     }
     showStatus(notice, isError);
   }
@@ -174,21 +196,25 @@
     renderAvatar(shape, color);
 
     const isCap = Boolean(player.is_capitan);
-    if (ctrlCapitanBadge) ctrlCapitanBadge.hidden = !isCap;
+    setElementVisible(ctrlCapitanBadge, isCap);
+    setElementVisible(ctrlFullscreenBtn, isCap, "inline-flex");
+    setElementVisible(ctrlRoleFullscreenBtn, isCap, "inline-flex");
     if (ctrlRoleBanner) {
-      ctrlRoleBanner.hidden = false;
+      setElementVisible(ctrlRoleBanner, true, "flex");
       ctrlRoleBanner.classList.toggle("is-capitan", isCap);
-      if (isCap) {
-        ctrlRoleBanner.textContent = "👑 Eres el Capitán";
-      } else {
-        ctrlRoleBanner.textContent = "Esperando al Capitán para iniciar...";
+      if (ctrlRoleText) {
+        if (isCap) {
+          ctrlRoleText.textContent = "👑 Eres el Capitán";
+        } else {
+          ctrlRoleText.textContent = "Esperando al Capitán para iniciar...";
+        }
       }
     }
 
     // Direct controller activation
-    connectScreen.hidden = true;
-    if (connectedScreen) connectedScreen.hidden = true;
-    controllerScreen.hidden = false;
+    setElementVisible(connectScreen, false);
+    if (connectedScreen) setElementVisible(connectedScreen, false);
+    setElementVisible(controllerScreen, true, "flex");
     document.body.classList.add("has-controller-active");
     document.documentElement.classList.add("has-controller-active");
 
@@ -489,16 +515,20 @@
         renderPlayerJoined(data.player);
       } else if (data.type === "role_update") {
         const isCap = Boolean(data.is_capitan);
-        if (ctrlCapitanBadge) ctrlCapitanBadge.hidden = !isCap;
+        setElementVisible(ctrlCapitanBadge, isCap);
+        setElementVisible(ctrlFullscreenBtn, isCap, "inline-flex");
+        setElementVisible(ctrlRoleFullscreenBtn, isCap, "inline-flex");
         if (ctrlRoleBanner) {
-          ctrlRoleBanner.hidden = false;
+          setElementVisible(ctrlRoleBanner, true, "flex");
           ctrlRoleBanner.classList.toggle("is-capitan", isCap);
-          if (isCap) {
-            ctrlRoleBanner.textContent = "👑 Eres el Capitán";
-            vibrate(30);
-            showToast("¡Ahora eres el Capitán! 👑", 1500);
-          } else {
-            ctrlRoleBanner.textContent = "Esperando al Capitán " + (data.capitan_name || "") + " para iniciar...";
+          if (ctrlRoleText) {
+            if (isCap) {
+              ctrlRoleText.textContent = "👑 Eres el Capitán";
+              vibrate(30);
+              showToast("¡Ahora eres el Capitán! 👑", 1500);
+            } else {
+              ctrlRoleText.textContent = "Esperando al Capitán " + (data.capitan_name || "") + " para iniciar...";
+            }
           }
         }
       } else if (data.type === "pong") {
@@ -507,6 +537,10 @@
           pongFeedback.classList.add("is-pop");
         }
         showToast("¡Saludo enviado a la tele! 📺✨", 1000);
+      } else if (data.type === "fullscreen_toggled") {
+        showToast("⛶ Pantalla cambiada 📺", 1000);
+      } else if (data.type === "error") {
+        showToast(data.message || "Acción no permitida", 2000);
       }
     });
 
@@ -532,6 +566,19 @@
       connectToGame();
     }
   });
+
+  function triggerFullscreenToggle() {
+    vibrate(25);
+    showToast("⛶ Cambiando pantalla...", 900);
+    sendWs({ type: "toggle_fullscreen" });
+  }
+
+  if (ctrlFullscreenBtn) {
+    ctrlFullscreenBtn.addEventListener("click", triggerFullscreenToggle);
+  }
+  if (ctrlRoleFullscreenBtn) {
+    ctrlRoleFullscreenBtn.addEventListener("click", triggerFullscreenToggle);
+  }
 
   function triggerPing() {
     vibrate(35);

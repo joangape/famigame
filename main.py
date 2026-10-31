@@ -12,6 +12,8 @@ from src.host_ui import HostScreenManager, LobbyRenderer
 from src.server import get_local_ip, start_background_server
 from src.state import LobbyState, Player
 
+TOGGLE_FULLSCREEN_EVENT = pygame.event.custom_type()
+
 
 def parse_resolution(res_str: str) -> tuple[int, int]:
     m = re.match(r"^(\d+)x(\d+)$", res_str.strip())
@@ -124,6 +126,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.debug_gamepad:
         print("🎮 Gamepad debug mode active: listening for controller signals...", flush=True)
 
+    def _on_fullscreen_toggle() -> None:
+        try:
+            pygame.event.post(pygame.event.Event(TOGGLE_FULLSCREEN_EVENT))
+        except Exception:
+            pass
+
+    state.set_fullscreen_listener(_on_fullscreen_toggle)
+
     def _get_active_capitan() -> Player:
         for p in state.snapshot():
             if p.is_capitan:
@@ -148,6 +158,11 @@ def main(argv: list[str] | None = None) -> int:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == TOGGLE_FULLSCREEN_EVENT:
+                try:
+                    pygame.display.toggle_fullscreen()
+                except pygame.error:
+                    pass
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False

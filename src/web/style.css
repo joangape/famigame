@@ -43,6 +43,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+[hidden],
+.is-hidden {
+  display: none !important;
+}
+
 html.has-controller-active,
 body.has-controller-active {
   position: fixed;
@@ -308,6 +313,15 @@ body.has-controller-active .app-shell,
   background: var(--sunny-active);
 }
 
+.btn-mint {
+  background: var(--mint);
+  color: var(--ink);
+}
+
+.btn-mint:active:not(:disabled) {
+  background: #05bf8e;
+}
+
 .btn-secondary {
   background: var(--surface);
   color: var(--ink);
@@ -554,21 +568,25 @@ body.has-controller-active .app-shell,
 }
 
 .ctrl-role-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   background: var(--surface);
   color: var(--ink);
   border: 2px solid var(--ink);
   border-radius: var(--radius-pill);
-  padding: 5px 14px;
+  padding: 5px 12px;
   font-size: 0.85rem;
   font-weight: 800;
-  text-align: center;
   box-shadow: 0 3px 0 var(--ink);
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   flex-shrink: 0;
   margin-bottom: 2px;
+}
+
+.ctrl-role-banner:not(.is-capitan) {
+  justify-content: center;
 }
 
 .ctrl-role-banner[hidden] {
@@ -581,6 +599,20 @@ body.has-controller-active .app-shell,
   color: #2B2D42;
   box-shadow: 0 3px 0 #2B2D42;
   font-weight: 900;
+}
+
+#ctrl-role-text {
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#ctrl-role-fullscreen-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  box-shadow: 0 2px 0 var(--ink);
 }
 
 .ctrl-name {
@@ -597,13 +629,24 @@ body.has-controller-active .app-shell,
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+#ctrl-fullscreen-btn[hidden],
+#ctrl-role-fullscreen-btn[hidden] {
+  display: none !important;
 }
 
 .btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 7px 12px;
   font-size: 0.82rem;
   border-radius: var(--radius-pill);
   box-shadow: 0 3px 0 var(--ink);
+  white-space: nowrap;
 }
 
 .btn-pill:active {
@@ -803,6 +846,57 @@ body.has-controller-active .app-shell,
   transform: translateY(4px);
   box-shadow: 0 2px 0 var(--ink);
   filter: brightness(0.92);
+}
+
+@media (max-width: 420px) {
+  .controller-topbar {
+    padding: 5px 8px;
+    gap: 4px;
+  }
+
+  .player-pill {
+    gap: 4px;
+  }
+
+  .ctrl-mini-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ctrl-name {
+    max-width: 70px;
+    font-size: 0.85rem;
+  }
+
+  .ctrl-actions {
+    gap: 4px;
+  }
+
+  .btn-pill {
+    padding: 5px 8px;
+    font-size: 0.76rem;
+  }
+
+  .ctrl-role-banner {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+  }
+
+  #ctrl-role-fullscreen-btn {
+    padding: 3px 8px;
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .ctrl-name {
+    max-width: 50px;
+  }
+
+  .btn-pill {
+    padding: 4px 6px;
+    font-size: 0.72rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

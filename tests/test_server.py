@@ -255,11 +255,20 @@ async def test_static_assets_serving_and_gamepad_dom():
         # GET /
         resp_index = await client.get("/")
         assert resp_index.status == 200
+        assert resp_index.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
+        assert resp_index.headers.get("Pragma") == "no-cache"
+        assert resp_index.headers.get("Expires") == "0"
         html = await resp_index.text()
         assert 'id="controller-screen"' in html
         assert 'id="dpad"' in html
         assert 'id="btn-a"' in html
         assert 'id="btn-b"' in html
+        assert 'id="ctrl-fullscreen-btn"' in html
+        assert 'id="ctrl-role-fullscreen-btn"' in html
+        assert 'id="ctrl-role-text"' in html
+        assert 'href="/style.css?v=2"' in html
+        assert 'src="/app.js?v=2"' in html
+        assert "⛶" in html
         assert 'id="ctrl-ping-btn"' in html
         assert 'id="ctrl-disconnect-btn"' in html
         assert 'id="ctrl-capitan-badge"' in html
@@ -268,21 +277,33 @@ async def test_static_assets_serving_and_gamepad_dom():
         # GET /app.js
         resp_js = await client.get("/app.js")
         assert resp_js.status == 200
+        assert resp_js.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
+        assert resp_js.headers.get("Pragma") == "no-cache"
+        assert resp_js.headers.get("Expires") == "0"
         js = await resp_js.text()
         assert "direction_change" in js
         assert "calculateDpadDirection" in js
         assert "has-controller-active" in js
         assert "role_update" in js
+        assert "ctrlFullscreenBtn" in js
+        assert "ctrlRoleFullscreenBtn" in js
+        assert "setElementVisible" in js
+        assert "toggle_fullscreen" in js
 
         # GET /style.css
         resp_css = await client.get("/style.css")
         assert resp_css.status == 200
+        assert resp_css.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
+        assert resp_css.headers.get("Pragma") == "no-cache"
+        assert resp_css.headers.get("Expires") == "0"
         css = await resp_css.text()
         assert "gamepad-surface" in css
         assert "action-cluster" in css
         assert "touch-action: none" in css
         assert "ctrl-capitan-badge" in css
         assert "ctrl-role-banner" in css
+        assert "ctrl-role-fullscreen-btn" in css
+        assert "btn-mint" in css
 
 
 @pytest.mark.asyncio
@@ -390,4 +411,105 @@ def test_capitan_none_when_empty():
     state.remove_player("p1")
     assert state.get_capitan_id() is None
     assert state.is_capitan("p1") is False
+
+
+def test_lobby_state_fullscreen_toggle_authorization():
+    state = LobbyState()
+    calls = []
+
+    def on_fullscreen():
+        calls.append(True)
+
+    # Programmatic invocation with no listener
+    assert state.trigger_fullscreen_toggle(player_id=None) is True
+    assert len(calls) == 0
+
+    state.set_fullscreen_listener(on_fullscreen)
+
+    # Programmatic invocation (player_id=None) works and calls listener
+    assert state.trigger_fullscreen_toggle() is True
+    assert len(calls) == 1
+
+    # Unauthorized player (player does not exist)
+    assert state.trigger_fullscreen_toggle(player_id="p999") is False
+    assert len(calls) == 1
+
+    # Add players: p1 becomes capitan, p2 is regular player
+    p1 = state.add_player("Capitan")
+    p2 = state.add_player("Sailor")
+    assert p1.is_capitan is True
+    assert p2.is_capitan is False
+
+    # Non-capitan player cannot toggle fullscreen
+    assert state.trigger_fullscreen_toggle(player_id=p2.id) is False
+    assert len(calls) == 1
+
+    # Capitan player can toggle fullscreen
+    assert state.trigger_fullscreen_toggle(player_id=p1.id) is True
+    assert len(calls) == 2
+
+    # Exception in listener is handled safely
+    def failing_listener():
+        raise RuntimeError("Display error")
+
+    state.set_fullscreen_listener(failing_listener)
+    assert state.trigger_fullscreen_toggle(player_id=p1.id) is True
+
+    # Clearing listener
+    state.set_fullscreen_listener(None)
+    assert state.trigger_fullscreen_toggle(player_id=p1.id) is True
+
+
+@pytest.mark.asyncio
+async def test_ws_toggle_fullscreen_authorized_and_unauthorized():
+    state = LobbyState()
+    fullscreen_events = []
+    state.set_fullscreen_listener(lambda: fullscreen_events.append(True))
+    app = create_app(state)
+
+    async with TestClient(TestServer(app)) as client:
+        # Connect ws1 (Capitán)
+        ws1 = await client.ws_connect("/ws")
+        await ws1.send_json({"type": "join", "name": "Capitan"})
+        msg1 = await ws1.receive_json()
+        assert msg1["type"] == "joined"
+        assert msg1["player"]["is_capitan"] is True
+        role1 = await ws1.receive_json()
+        assert role1["type"] == "role_update"
+
+        # Connect ws2 (Tripulante)
+        ws2 = await client.ws_connect("/ws")
+        await ws2.send_json({"type": "join", "name": "Tripulante"})
+        msg2 = await ws2.receive_json()
+        assert msg2["type"] == "joined"
+        assert msg2["player"]["is_capitan"] is False
+
+        # Drain role updates triggered by second player joining
+        _role_p1 = await ws1.receive_json()
+        _role_p2 = await ws2.receive_json()
+
+        assert len(fullscreen_events) == 0
+
+        # Unauthorized attempt from ws2 (non-capitan)
+        await ws2.send_json({"type": "toggle_fullscreen"})
+        resp2 = await asyncio.wait_for(ws2.receive_json(), timeout=2.0)
+        assert resp2 == {
+            "type": "error",
+            "message": "Solo el Capitán puede alternar pantalla completa",
+        }
+        assert len(fullscreen_events) == 0
+
+        # Authorized attempt from ws1 (capitan)
+        await ws1.send_json({"type": "toggle_fullscreen"})
+        resp1 = await asyncio.wait_for(ws1.receive_json(), timeout=2.0)
+        assert resp1 == {
+            "type": "fullscreen_toggled",
+            "status": "ok",
+        }
+        assert len(fullscreen_events) == 1
+
+        await ws1.close()
+        await ws2.close()
+
+
 

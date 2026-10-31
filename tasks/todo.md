@@ -82,6 +82,23 @@
 
 ---
 
+## Task: Motor y Ciclo de Vida de Minijuegos + Bomb Dodge — TASK-006 (EPIC-05)
+**Description:** Implementar la arquitectura extensible del motor y ciclo de vida de minijuegos (`BaseMinigame`, `MinigameManager`), y construir el primer minijuego jugable completo: "Bomb Dodge" (Esquiva la Bomba) integrado en `HostScreenManager`.
+
+**Acceptance criteria:**
+- [ ] Interfaz abstracta `BaseMinigame` con métodos estándar de ciclo de vida (`init`, `update`, `render`, `handle_input`, `is_finished`, `get_scores`).
+- [ ] Gestor central `MinigameManager` con registro, rotación y acumulador de puntuaciones multi-ronda.
+- [ ] Minijuego `BombDodgeMinigame`: arena neobrutalista, límites de movimiento, 3 vidas/corazones, mecánica de dash ([A]) con 1.5s de cooldown e indicador visual, bombardeo procedural creciente (45s), sombras de aviso, radio de explosión, invulnerabilidad temporal al golpe, e integración con `SoundEngine`.
+- [ ] Integración en `HostScreenManager`: lanzamiento al terminar cuenta atrás, ciclo de actualización y render en `ScreenState.GAME`, y transición automática a resultados al terminar la partida.
+- [ ] Suite de pruebas exhaustiva en `tests/test_minigames.py` y compatibilidad total con los 64 tests existentes.
+
+**Verification:**
+- [ ] Tests unitarios y de integración: `.venv/bin/pytest tests/test_minigames.py -v`.
+- [ ] Suite completa en verde: `.venv/bin/pytest -v`.
+- [ ] Smoke test headless: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy .venv/bin/python main.py --frames 10 --port 0`.
+
+---
+
 ## Task 5: Minijuego Disk Shooter (Disparo a Discos Menguantes) — TASK-009
 **Description:** Implementar el minijuego de puntería y reflejos en tiempo real. Cada jugador controla una retícula en pantalla identificada con su color y avatar. Aparecen discos en posiciones aleatorias que se desplazan y reducen su tamaño progresivamente hasta desaparecer. El primer jugador que dispara al disco con el botón A se anota un punto.
 
